@@ -84,16 +84,3 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 }
 
-// Placeholder Login Screen
-class LoginScreenPlaceholder extends StatelessWidget {
-  const LoginScreenPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text("Halaman Login"),
-      ),
-    );
-  }
-}
