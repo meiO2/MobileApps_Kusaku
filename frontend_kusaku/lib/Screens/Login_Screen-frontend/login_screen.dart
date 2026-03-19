@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../Widgets/kusaku_auth_widgets.dart';
-import 'home_screen.dart';
+import '../../Widgets/kusaku_auth_widgets.dart';
+import '../../home_screen.dart';
+import 'phone_signin_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
 	const LoginScreen({super.key});
@@ -133,7 +135,11 @@ class _LoginScreenState extends State<LoginScreen> {
 													Center(
 														child: KusakuGradientButton(
 															text: 'Log in',
-															onPressed: () {},
+															onPressed: () {
+																Navigator.of(context).pushReplacement(
+																	MaterialPageRoute(builder: (_) => const HomeScreen()),
+																);
+															},
 														),
 													),
 													const SizedBox(height: 20),
@@ -144,9 +150,15 @@ class _LoginScreenState extends State<LoginScreen> {
 													const SizedBox(height: 20),
 													KusakuInputField(
 														controller: _phoneController,
-														hintText: 'Phone Number',
+													hintText: 'Phone Number',
 														icon: Icons.smartphone,
 														keyboardType: TextInputType.phone,
+														readOnly: true,
+														onTap: () {
+															Navigator.of(context).push(
+																MaterialPageRoute(builder: (_) => const PhoneSignInScreen()),
+															);
+														},
 													),
 													const SizedBox(height: 16),
 													Row(

@@ -68,6 +68,8 @@ class KusakuInputField extends StatelessWidget {
     required this.icon,
     this.keyboardType = TextInputType.text,
     this.obscureText = false,
+    this.readOnly = false,
+    this.onTap,
     this.suffixIcon,
     super.key,
   });
@@ -77,6 +79,8 @@ class KusakuInputField extends StatelessWidget {
   final IconData icon;
   final TextInputType keyboardType;
   final bool obscureText;
+  final bool readOnly;
+  final VoidCallback? onTap;
   final Widget? suffixIcon;
 
   @override
@@ -90,6 +94,8 @@ class KusakuInputField extends StatelessWidget {
         controller: controller,
         keyboardType: keyboardType,
         obscureText: obscureText,
+        readOnly: readOnly,
+        onTap: onTap,
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: const TextStyle(
