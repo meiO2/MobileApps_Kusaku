@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../Widgets/kusaku_auth_widgets.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
 	const LoginScreen({super.key});
@@ -10,6 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+	static const String _validPin = '123456';
 	late final TextEditingController _usernameController;
 	late final TextEditingController _passwordController;
 	late final TextEditingController _phoneController;
@@ -35,24 +37,45 @@ class _LoginScreenState extends State<LoginScreen> {
 	Widget build(BuildContext context) {
 		return Scaffold(
 			backgroundColor: KusakuColors.backgroundBlue,
+			bottomNavigationBar: KusakuBottomPinPanel(
+				onPressed: () async {
+					final String? pin = await showDialog<String>(
+						context: context,
+						builder: (context) => const KusakuPinInputDialog(),
+					);
+
+					if (!mounted || pin == null) return;
+					if (pin == _validPin) {
+						Navigator.of(context).pushReplacement(
+							MaterialPageRoute(builder: (_) => const HomeScreen()),
+						);
+						return;
+					}
+
+					ScaffoldMessenger.of(context).showSnackBar(
+						const SnackBar(content: Text('PIN salah. Silakan coba lagi.')), //PIN sementara 123456
+					);
+				},
+			),
 			body: SafeArea(
-				child: Column(
-					children: [
-						KusakuAuthHeader(
-							logoAsset: 'assets/images/Logo.png',
-							titleAsset: 'assets/images/KUSAKU.png',
-						),
-						const SizedBox(height: 10),
-						Expanded(
-							child: Align(
+				child: SingleChildScrollView(
+					padding: const EdgeInsets.only(bottom: 12),
+					child: Column(
+						children: [
+							KusakuAuthHeader(
+								logoAsset: 'assets/images/Logo.png',
+								titleAsset: 'assets/images/KUSAKU.png',
+							),
+							const SizedBox(height: 10),
+							Align(
 								alignment: Alignment.topCenter,
 								child: FractionallySizedBox(
-									heightFactor: 0.80,
 									widthFactor: 0.95,
 									child: KusakuAuthCard(
 										child: Padding(
 											padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
 											child: Column(
+												mainAxisSize: MainAxisSize.min,
 												crossAxisAlignment: CrossAxisAlignment.start,
 												children: [
 													const Center(
@@ -125,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
 														icon: Icons.smartphone,
 														keyboardType: TextInputType.phone,
 													),
-													const Spacer(),
+													const SizedBox(height: 16),
 													Row(
 														mainAxisAlignment: MainAxisAlignment.center,
 														children: [
@@ -160,8 +183,8 @@ class _LoginScreenState extends State<LoginScreen> {
 									),
 								),
 							),
-						),
-					],
+						],
+					),
 				),
 			),
 		);

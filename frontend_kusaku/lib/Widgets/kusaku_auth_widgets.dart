@@ -214,3 +214,155 @@ class KusakuBottomPinPanel extends StatelessWidget {
     );
   }
 }
+
+class KusakuPinInputDialog extends StatefulWidget {
+  const KusakuPinInputDialog({
+    this.title = 'Enter your PIN',
+    this.pinLength = 6,
+    super.key,
+  });
+
+  final String title;
+  final int pinLength;
+
+  @override
+  State<KusakuPinInputDialog> createState() => _KusakuPinInputDialogState();
+}
+
+class _KusakuPinInputDialogState extends State<KusakuPinInputDialog> {
+  String _pin = '';
+
+  void _appendDigit(String digit) {
+    if (_pin.length >= widget.pinLength) return;
+    setState(() {
+      _pin += digit;
+    });
+  }
+
+  void _deleteDigit() {
+    if (_pin.isEmpty) return;
+    setState(() {
+      _pin = _pin.substring(0, _pin.length - 1);
+    });
+  }
+
+  void _submitPin() {
+    if (_pin.length == widget.pinLength) {
+      Navigator.of(context).pop(_pin);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.pinLength, (index) {
+                final bool filled = index < _pin.length;
+                return Container(
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: filled ? KusakuColors.primaryBlue : const Color(0xFFE5E7EB),
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 14),
+            GridView.count(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              shrinkWrap: true,
+              childAspectRatio: 1.6,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                for (int i = 1; i <= 9; i++) _PinKeyButton(label: '$i', onTap: () => _appendDigit('$i')),
+                _PinKeyButton(
+                  icon: Icons.backspace_outlined,
+                  onTap: _deleteDigit,
+                  foregroundColor: KusakuColors.primaryBlue,
+                ),
+                _PinKeyButton(label: '0', onTap: () => _appendDigit('0')),
+                _PinKeyButton(
+                  icon: Icons.check,
+                  onTap: _submitPin,
+                  backgroundColor: const Color(0xFF2F1BE0),
+                  foregroundColor: Colors.white,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinKeyButton extends StatelessWidget {
+  const _PinKeyButton({
+    this.label,
+    this.icon,
+    required this.onTap,
+    this.backgroundColor = const Color(0xFFE5E7EB),
+    this.foregroundColor = const Color(0xFF3642C5),
+  });
+
+  final String? label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        overlayColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 0,
+      ).copyWith(
+        splashFactory: NoSplash.splashFactory,
+      ),
+      child: icon != null
+          ? Icon(icon, size: 24)
+          : Text(
+              label ?? '',
+              style: const TextStyle(fontSize: 36 / 2, fontWeight: FontWeight.w700),
+            ),
+    );
+  }
+}
