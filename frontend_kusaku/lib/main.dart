@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend_kusaku/splashScreen_Kusaku/splash_screen.dart'; 
+import 'package:frontend_kusaku/Screens/splash_screen.dart'; 
 
 void main() {
   runApp(const MyApp());

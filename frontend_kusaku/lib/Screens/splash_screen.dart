@@ -143,7 +143,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 }
 
-// Placeholder Login Screen
 class LoginScreenPlaceholder extends StatelessWidget {
   const LoginScreenPlaceholder({super.key});
 
