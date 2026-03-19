@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -69,15 +70,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       }
     });
 
-    // Pindah Halaman Instan 
+    // Pindah ke Login Screen setelah animasi selesai
     Timer(const Duration(seconds: 4), () {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreenPlaceholder(),
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-        ),
-      );
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
+        );
+      }
     });
   }
 
@@ -138,19 +141,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class LoginScreenPlaceholder extends StatelessWidget {
-  const LoginScreenPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text("Halaman Login"),
       ),
     );
   }
