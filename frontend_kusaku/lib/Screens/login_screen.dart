@@ -2,8 +2,34 @@ import 'package:flutter/material.dart';
 
 import '../Widgets/kusaku_auth_widgets.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
 	const LoginScreen({super.key});
+
+	@override
+	State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+	late final TextEditingController _usernameController;
+	late final TextEditingController _passwordController;
+	late final TextEditingController _phoneController;
+	bool _obscurePassword = true;
+
+	@override
+	void initState() {
+		super.initState();
+		_usernameController = TextEditingController();
+		_passwordController = TextEditingController();
+		_phoneController = TextEditingController();
+	}
+
+	@override
+	void dispose() {
+		_usernameController.dispose();
+		_passwordController.dispose();
+		_phoneController.dispose();
+		super.dispose();
+	}
 
 	@override
 	Widget build(BuildContext context) {
@@ -11,12 +37,12 @@ class LoginScreen extends StatelessWidget {
 			backgroundColor: KusakuColors.backgroundBlue,
 			body: SafeArea(
 				child: Column(
-					children: const [
+					children: [
 						KusakuAuthHeader(
 							logoAsset: 'assets/images/Logo.png',
 							titleAsset: 'assets/images/KUSAKU.png',
 						),
-						SizedBox(height: 10),
+						const SizedBox(height: 10),
 						Expanded(
 							child: Align(
 								alignment: Alignment.topCenter,
@@ -24,7 +50,113 @@ class LoginScreen extends StatelessWidget {
 									heightFactor: 0.80,
 									widthFactor: 0.95,
 									child: KusakuAuthCard(
-										child: SizedBox.expand(),
+										child: Padding(
+											padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+											child: Column(
+												crossAxisAlignment: CrossAxisAlignment.start,
+												children: [
+													const Center(
+														child: Text(
+															'Welcome Back!',
+															style: TextStyle(
+																fontSize: 22,
+																fontWeight: FontWeight.w700,
+															),
+														),
+													),
+													const SizedBox(height: 18),
+													KusakuInputField(
+														controller: _usernameController,
+														hintText: 'Username',
+														icon: Icons.person,
+													),
+													const SizedBox(height: 10),
+													KusakuInputField(
+														controller: _passwordController,
+														hintText: 'Password',
+														icon: Icons.lock,
+														obscureText: _obscurePassword,
+														suffixIcon: IconButton(
+															onPressed: () {
+																setState(() {
+																	_obscurePassword = !_obscurePassword;
+																});
+															},
+															icon: Icon(
+																_obscurePassword ? Icons.visibility_off : Icons.visibility,
+																color: const Color(0xFF9CA3AF),
+															),
+														),
+													),
+													Align(
+														alignment: Alignment.centerRight,
+														child: TextButton(
+															onPressed: () {},
+															style: TextButton.styleFrom(
+																padding: const EdgeInsets.only(top: 4, right: 2),
+																minimumSize: Size.zero,
+																tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+															),
+															child: const Text(
+																'Forgot Password?',
+																style: TextStyle(
+																	fontSize: 11,
+																	color: KusakuColors.primaryBlue,
+																),
+															),
+														),
+													),
+													const SizedBox(height: 14),
+													Center(
+														child: KusakuGradientButton(
+															text: 'Log in',
+															onPressed: () {},
+														),
+													),
+													const SizedBox(height: 20),
+													const Divider(
+														thickness: 2,
+														color: Color(0xFF9F8BC9),
+													),
+													const SizedBox(height: 20),
+													KusakuInputField(
+														controller: _phoneController,
+														hintText: 'Phone Number',
+														icon: Icons.smartphone,
+														keyboardType: TextInputType.phone,
+													),
+													const Spacer(),
+													Row(
+														mainAxisAlignment: MainAxisAlignment.center,
+														children: [
+															const Text(
+																"Don't have an account yet? ",
+																style: TextStyle(
+																	fontSize: 12,
+																	color: Color(0xFF1F2937),
+																),
+															),
+															TextButton(
+																onPressed: () {},
+																style: TextButton.styleFrom(
+																	minimumSize: Size.zero,
+																	tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+																	padding: EdgeInsets.zero,
+																),
+																child: const Text(
+																	'Sign Up',
+																	style: TextStyle(
+																		fontSize: 12,
+																		fontWeight: FontWeight.w700,
+																		color: KusakuColors.primaryBlue,
+																	),
+																),
+															),
+														],
+													),
+												],
+											),
+										),
 									),
 								),
 							),
