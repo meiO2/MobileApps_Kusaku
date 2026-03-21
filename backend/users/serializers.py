@@ -37,7 +37,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.is_active = True
         user.save()
 
-        # 🧹 DELETE OTP after success
         otp_obj.delete()
 
         return user

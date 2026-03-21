@@ -45,6 +45,7 @@ INSTALLED_APPS = [
 
     #API
     'users',
+    'ads',
 ]
 
 MIDDLEWARE = [
@@ -138,6 +139,6 @@ AUTH_USER_MODEL = 'users.Account'
 OTP_TOTP_ISSUER = 'Kusaku'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = 'media/'
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
