@@ -5,6 +5,7 @@ import '../../Services/auth_services/user_credentials_store.dart';
 import '../../Widgets/kusaku_auth_widgets.dart';
 import '../../home_screen.dart';
 import 'phone_signin_screen.dart';
+import '../Singup_Screen-frontend/sign_up_screen.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -197,7 +198,11 @@ class _LoginScreenState extends State<LoginScreen> {
 																),
 															),
 															TextButton(
-																onPressed: () {},
+																onPressed: () {
+																	Navigator.of(context).push(
+																		MaterialPageRoute(builder: (_) => const SignUpScreen()),
+																	);
+																},
 																style: TextButton.styleFrom(
 																	minimumSize: Size.zero,
 																	tapTargetSize: MaterialTapTargetSize.shrinkWrap,
