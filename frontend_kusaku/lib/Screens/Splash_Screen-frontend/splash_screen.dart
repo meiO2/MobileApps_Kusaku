@@ -37,9 +37,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     // Animasi Ukuran (Scale) Logo & Kusaku
     _scaleAnimation = TweenSequence<double>([
-      // muncul Ukuran KECIL 
+      // muncul Ukuran KECIL
       TweenSequenceItem(tween: ConstantTween(0.5), weight: 50),
-      // Membesar dari 0.5 ke 1.0 
+      // Membesar dari 0.5 ke 1.0
       TweenSequenceItem(
         tween: Tween(begin: 0.5, end: 1.0).chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 50,
@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     _fadeAnimation = TweenSequence<double>([
       // belum terlihat waktu awal
       TweenSequenceItem(tween: ConstantTween(0.0), weight: 15),
-      // mulai muncul 
+      // mulai muncul
       TweenSequenceItem(
         tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeIn)),
         weight: 35,
@@ -63,7 +63,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     _sequenceController.forward();
 
     // berputar saat logo membesar
-    
     Future.delayed(const Duration(milliseconds: 1250), () {
       if (mounted) {
         _rotationController.repeat(); // Baru mulai berputar di sini
@@ -125,7 +124,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             ),
           ),
 
-          // Gambar Tagline "Ayo..." 
+          // Gambar Tagline "Ayo..."
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -135,7 +134,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 opacity: _fadeAnimation,
                 child: Image.asset(
                   'assets/images/Ayo Atur Pengeluaranmu!.png',
-                  width: 250, 
+                  width: 250,
                 ),
               ),
             ),

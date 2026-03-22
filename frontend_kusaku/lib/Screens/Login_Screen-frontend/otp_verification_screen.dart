@@ -59,6 +59,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 		}
 	}
 
+	double _otpBoxWidth(double availableWidth) {
+		const double spacing = 12;
+		const int totalBoxes = 6;
+		final double width = (availableWidth - (spacing * (totalBoxes - 1))) / totalBoxes;
+		return width.clamp(34, 44).toDouble();
+	}
+
 	@override
 	Widget build(BuildContext context) {
 		return Scaffold(
@@ -109,53 +116,58 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 													),
 													const SizedBox(height: 24),
 													// OTP Input Fields
-													Row(
-														mainAxisAlignment: MainAxisAlignment.center,
-														children: List.generate(
-															6,
-															(index) => Padding(
-																padding: const EdgeInsets.symmetric(horizontal: 6),
-																child: SizedBox(
-																	width: 40,
-																	height: 50,
-																	child: TextField(
-																		controller: _otpControllers[index],
-																		focusNode: _focusNodes[index],
-																		textAlign: TextAlign.center,
-																		keyboardType: TextInputType.number,
-																		maxLength: 1,
-																		onChanged: (value) => _handleOtpInput(index, value),
-																		decoration: InputDecoration(
-																			counterText: '',
-																			filled: true,
-																			fillColor: Colors.white,
-																			contentPadding: EdgeInsets.zero,
-																			border: OutlineInputBorder(
-																				borderRadius: BorderRadius.circular(8),
-																				borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-																			),
-																			enabledBorder: OutlineInputBorder(
-																				borderRadius: BorderRadius.circular(8),
-																				borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-																			),
-																			focusedBorder: OutlineInputBorder(
-																				borderRadius: BorderRadius.circular(8),
-																				borderSide: const BorderSide(
-																					color: KusakuColors.primaryBlue,
+													LayoutBuilder(
+														builder: (context, constraints) {
+															final boxWidth = _otpBoxWidth(constraints.maxWidth);
+															return Row(
+																mainAxisAlignment: MainAxisAlignment.center,
+																children: List.generate(
+																	6,
+																	(index) => Padding(
+																		padding: EdgeInsets.only(right: index == 5 ? 0 : 12),
+																		child: SizedBox(
+																			width: boxWidth,
+																			height: 50,
+																			child: TextField(
+																				controller: _otpControllers[index],
+																				focusNode: _focusNodes[index],
+																				textAlign: TextAlign.center,
+																				keyboardType: TextInputType.number,
+																				maxLength: 1,
+																				onChanged: (value) => _handleOtpInput(index, value),
+																				decoration: InputDecoration(
+																					counterText: '',
+																					filled: true,
+																					fillColor: Colors.white,
+																					contentPadding: EdgeInsets.zero,
+																					border: OutlineInputBorder(
+																						borderRadius: BorderRadius.circular(8),
+																						borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+																					),
+																					enabledBorder: OutlineInputBorder(
+																						borderRadius: BorderRadius.circular(8),
+																						borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+																					),
+																					focusedBorder: OutlineInputBorder(
+																						borderRadius: BorderRadius.circular(8),
+																						borderSide: const BorderSide(
+																							color: KusakuColors.primaryBlue,
+																						),
+																					),
 																				),
 																			),
 																		),
 																	),
 																),
-															),
-														),
+															);
+														},
 													),
 													const SizedBox(height: 24),
 													Center(
 														child: KusakuGradientButton(
 															text: 'Resend',
 															onPressed: () {
-																// TODO: Implement resend OTP logic
+																// resend OTP logic
 																ScaffoldMessenger.of(context).showSnackBar(
 																	const SnackBar(content: Text('OTP resent successfully')),
 																);

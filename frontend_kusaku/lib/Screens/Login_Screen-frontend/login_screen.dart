@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
 														child: TextButton(
 															onPressed: () {},
 															style: TextButton.styleFrom(
-																padding: const EdgeInsets.only(top: 4, right: 2),
+																padding: const EdgeInsets.only(top: 10, right: 12),
 																minimumSize: Size.zero,
 																tapTargetSize: MaterialTapTargetSize.shrinkWrap,
 															),
