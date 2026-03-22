@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../Services/transaction_pin_store.dart';
+import '../../Services/auth_services/user_credentials_store.dart';
 import '../../Widgets/kusaku_auth_widgets.dart';
 import '../../home_screen.dart';
 import 'phone_signin_screen.dart';
@@ -13,7 +15,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-	static const String _validPin = '123456';
 	late final TextEditingController _usernameController;
 	late final TextEditingController _passwordController;
 	late final TextEditingController _phoneController;
@@ -41,13 +42,20 @@ class _LoginScreenState extends State<LoginScreen> {
 			backgroundColor: KusakuColors.backgroundBlue,
 			bottomNavigationBar: KusakuBottomPinPanel(
 				onPressed: () async {
+					if (!TransactionPinStore.hasPin) {
+						ScaffoldMessenger.of(context).showSnackBar(
+							const SnackBar(content: Text('PIN belum dibuat. Selesaikan Sign Up dulu.')),
+						);
+						return;
+					}
+
 					final String? pin = await showDialog<String>(
 						context: context,
 						builder: (context) => const KusakuPinInputDialog(),
 					);
 
 					if (!mounted || pin == null) return;
-					if (pin == _validPin) {
+					if (pin == TransactionPinStore.pin) {
 						Navigator.of(context).pushReplacement(
 							MaterialPageRoute(builder: (_) => const HomeScreen()),
 						);
@@ -136,6 +144,23 @@ class _LoginScreenState extends State<LoginScreen> {
 														child: KusakuGradientButton(
 															text: 'Log in',
 															onPressed: () {
+																if (!UserCredentialsStore.hasCredentials) {
+																	ScaffoldMessenger.of(context).showSnackBar(
+																		const SnackBar(content: Text('Akun belum terdaftar. Selesaikan Sign Up dulu.')),
+																	);
+																	return;
+																}
+
+																final inputUsername = _usernameController.text.trim();
+																final inputPassword = _passwordController.text.trim();
+																if (inputUsername != UserCredentialsStore.username ||
+																	inputPassword != UserCredentialsStore.password) {
+																	ScaffoldMessenger.of(context).showSnackBar(
+																		const SnackBar(content: Text('Username atau Password salah.')),
+																	);
+																	return;
+																}
+
 																Navigator.of(context).pushReplacement(
 																	MaterialPageRoute(builder: (_) => const HomeScreen()),
 																);
