@@ -5,6 +5,7 @@ import '../../Services/auth_services/user_credentials_store.dart';
 import '../../Widgets/kusaku_auth_widgets.dart';
 import '../../home_screen.dart';
 import 'phone_signin_screen.dart';
+import '../ForgotPassword_Screen-frontend/forgot_password_screen.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -124,7 +125,11 @@ class _LoginScreenState extends State<LoginScreen> {
 													Align(
 														alignment: Alignment.centerRight,
 														child: TextButton(
-															onPressed: () {},
+															onPressed: () {
+																Navigator.of(context).push(
+																	MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+																);
+															},
 															style: TextButton.styleFrom(
 																padding: const EdgeInsets.only(top: 10, right: 12),
 																minimumSize: Size.zero,
