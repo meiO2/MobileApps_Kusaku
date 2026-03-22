@@ -21,7 +21,6 @@ class _MainShellState extends State<MainShell> {
   final List<Widget> _pages = [
     const HomePage(),
     const FinancePage(),  
-    const ScanPage(),
     const HistoryPage(),   
     const ProfilePage(),
   ];
@@ -102,7 +101,7 @@ class _KusakuNavBar extends StatelessWidget {
               Expanded(
                 child: 
                 Transform.translate(
-                  offset: const Offset(0, -20), //BANGKE BIKIN INI NAPA RIBET, GUA SKILL ISSUE
+                  offset: const Offset(0, -20),
                   child: GestureDetector(
                   onTap: () => onTap(2),
                   child: Column(

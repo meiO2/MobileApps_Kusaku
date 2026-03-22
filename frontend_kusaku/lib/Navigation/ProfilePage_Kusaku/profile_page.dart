@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_points_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_stamp_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -31,47 +35,43 @@ class ProfilePage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color.fromARGB(255, 0, 0, 0)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
-                      blurRadius: 8,
+                      blurRadius: 2,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Row(
                   children: [
-                    // Avatar circle with initial
+                    // Avatar — blank person icon
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 55,
+                      height: 55,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF1D4ED8),
+                        color: Color(0xFFE5E7EB),
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
-                        child: Text(
-                          'K',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Color(0xFF9CA3AF),
+                        size: 28,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Name & phone
+                    // Name & phone — will come from login later
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
-                            'Kasepiano',
+                            'Username',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
@@ -80,7 +80,7 @@ class ProfilePage extends StatelessWidget {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            '081234567890',
+                            'No. Telepon',
                             style: TextStyle(
                               fontSize: 13,
                               color: Color(0xFF6B7280),
@@ -92,7 +92,7 @@ class ProfilePage extends StatelessWidget {
                     // Ubah button
                     TextButton(
                       onPressed: () {
-                        // TODO: navigate to edit profile
+                        // TODO: navigate to edit profile once login exists
                       },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -116,65 +116,80 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── Section: Reward ──
-            _SectionLabel(label: 'Reward'),
+            const _SectionLabel(label: 'Reward'),
             _MenuTile(
               icon: Icons.add_box_outlined,
               label: 'Kusaku Points',
-              onTap: () => _goToEmpty(context, 'Kusaku Points'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KusakuPointsPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.card_giftcard_outlined,
               label: 'Kusaku Stamp',
-              onTap: () => _goToEmpty(context, 'Kusaku Stamp'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KusakuStampPage()),
+              ),
               isLast: true,
             ),
 
             const SizedBox(height: 20),
 
             // ── Section: Bantuan ──
-            _SectionLabel(label: 'Bantuan'),
+            const _SectionLabel(label: 'Bantuan'),
             _MenuTile(
               icon: Icons.help_outline,
               label: 'Pusat Bantuan',
-              onTap: () => _goToEmpty(context, 'Pusat Bantuan'),
+              onTap: () {
+                // TODO: Pusat Bantuan page
+              },
               isLast: true,
             ),
 
             const SizedBox(height: 20),
 
             // ── Section: Keamanan ──
-            _SectionLabel(label: 'Keamanan'),
+            const _SectionLabel(label: 'Keamanan'),
             _MenuTile(
               icon: Icons.lock_outline,
               label: 'Ubah Security Code',
-              onTap: () => _goToEmpty(context, 'Ubah Security Code'),
+              onTap: () {
+                // TODO: Ubah Security Code page
+              },
             ),
-            // Fingerprint toggle row
-            _FingerprintTile(),
+            const _FingerprintTile(),
 
             const SizedBox(height: 20),
 
             // ── Section: Tentang ──
-            _SectionLabel(label: 'Tentang'),
+            const _SectionLabel(label: 'Tentang'),
             _MenuTile(
               icon: Icons.emoji_events_outlined,
               label: 'Keuntungan Pakai Kusaku',
-              onTap: () => _goToEmpty(context, 'Keuntungan Pakai Kusaku'),
+              onTap: () {
+                // TODO: Keuntungan Pakai Kusaku page
+              },
             ),
             _MenuTile(
               icon: Icons.menu_book_outlined,
               label: 'Panduan Kusaku',
-              onTap: () => _goToEmpty(context, 'Panduan Kusaku'),
+              onTap: () {
+                // TODO: Panduan Kusaku page
+              },
             ),
             _MenuTile(
               icon: Icons.description_outlined,
               label: 'Syarat dan Ketentuan',
-              onTap: () => _goToEmpty(context, 'Syarat dan Ketentuan'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SyaratKetentuanPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.security_outlined,
               label: 'Kebijakan Privasi',
-              onTap: () => _goToEmpty(context, 'Kebijakan Privasi'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KebijakanPrivasiPage()),
+              ),
               isLast: true,
             ),
 
@@ -214,12 +229,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  void _goToEmpty(BuildContext context, String title) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _EmptySubPage(title: title)),
-    );
-  }
-
   void _showSignOutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -241,7 +250,7 @@ class ProfilePage extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              // TODO: actual sign out logic
+              // TODO: actual sign out logic once login exists
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1D4ED8),
@@ -302,10 +311,7 @@ class _MenuTile extends StatelessWidget {
             leading: Icon(icon, color: const Color(0xFF374151), size: 22),
             title: Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF111827),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF111827)),
             ),
             trailing: const Icon(
               Icons.chevron_right,
@@ -321,7 +327,6 @@ class _MenuTile extends StatelessWidget {
               height: 1,
               thickness: 0.5,
               indent: 52,
-              endIndent: 0,
               color: Color(0xFFE5E7EB),
             ),
         ],
@@ -332,6 +337,8 @@ class _MenuTile extends StatelessWidget {
 
 // ── Fingerprint toggle tile ──
 class _FingerprintTile extends StatefulWidget {
+  const _FingerprintTile();
+
   @override
   State<_FingerprintTile> createState() => _FingerprintTileState();
 }
@@ -356,47 +363,6 @@ class _FingerprintTileState extends State<_FingerprintTile> {
         ),
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-      ),
-    );
-  }
-}
-
-// ── Generic empty sub-page ──
-class _EmptySubPage extends StatelessWidget {
-  final String title;
-  const _EmptySubPage({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1D4ED8),
-        foregroundColor: Colors.white,
-        title: Text(title),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.construction_outlined,
-                size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF374151),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Halaman ini belum tersedia.',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
       ),
     );
   }
