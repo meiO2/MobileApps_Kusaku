@@ -244,7 +244,7 @@ class ProfilePage extends StatelessWidget {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text(
               'Batal',
-              style: TextStyle(color: Color(0xFF6B7280)),
+              style: TextStyle(color: Color.fromARGB(255, 100, 104, 112)),
             ),
           ),
           ElevatedButton(
@@ -258,7 +258,7 @@ class ProfilePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Ya, Keluar'),
+            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white)), 
           ),
         ],
       ),
