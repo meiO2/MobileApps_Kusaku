@@ -3,11 +3,10 @@ from django.core.mail import send_mail
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.conf import settings
 
 from .models import EmailOTP, Account
-from .serializers import RegisterSerializer, SendOTPSerializer, AccountSerializer
-
-from rest_framework.generics import ListAPIView
+from .serializers import RegisterSerializer, SendOTPSerializer
 
 class SendOTPView(APIView):
     def post(self, request):
@@ -25,12 +24,16 @@ class SendOTPView(APIView):
 
             otp = str(random.randint(100000, 999999))
 
-            EmailOTP.objects.create(email=email, otp=otp)
+            # 🔥 UPDATE OR CREATE (prevent spam)
+            EmailOTP.objects.update_or_create(
+                email=email,
+                defaults={'otp': otp}
+            )
 
             send_mail(
                 'Kode OTP Kusaku',
                 f'Kode OTP kamu adalah {otp}',
-                'noreply@kusaku.com',
+                settings.EMAIL_HOST_USER,
                 [email],
                 fail_silently=False,
             )
@@ -49,7 +52,3 @@ class RegisterView(APIView):
             return Response({"message": "Akun berhasil dibuat"}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class AccountListView(ListAPIView):
-    queryset = Account.objects.all()
-    serializer_class = AccountSerializer
