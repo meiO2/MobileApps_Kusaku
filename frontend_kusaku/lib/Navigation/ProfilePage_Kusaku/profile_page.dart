@@ -1,14 +1,62 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_points_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_stamp_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
+import '../../Screens/Login_Screen-frontend/login_screen.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String _username = "Loading...";
+  String _phone = "...";
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) return;
+
+      // Call your backend Profile Search API
+      final response = await http.get(
+        Uri.parse('http://10.93.20.130:8000/api/users/profile/$userId/'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _username = data['username'] ?? "User";
+          _phone = data['phone_number'] ?? "No Phone"; // Assuming your Account model has this field
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Get first letter for Avatar
+    String avatarLetter = _username.isNotEmpty ? _username[0].toUpperCase() : "?";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
@@ -50,7 +98,7 @@ class ProfilePage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Avatar — blank person icon
+                    // Avatar — Shows first letter of username
                     Container(
                       width: 55,
                       height: 55,
@@ -58,30 +106,35 @@ class ProfilePage extends StatelessWidget {
                         color: Color(0xFFE5E7EB),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Color(0xFF9CA3AF),
-                        size: 28,
+                      child: Center(
+                        child: Text(
+                          avatarLetter,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1D4ED8),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Name & phone — will come from login later
+                    // Name & phone — Real data from backend
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
-                            'Username',
-                            style: TextStyle(
+                            _username,
+                            style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
                               color: Color(0xFF111827),
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'No. Telepon',
-                            style: TextStyle(
+                            _phone,
+                            style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF6B7280),
                             ),
@@ -92,7 +145,7 @@ class ProfilePage extends StatelessWidget {
                     // Ubah button
                     TextButton(
                       onPressed: () {
-                        // TODO: navigate to edit profile once login exists
+                        // TODO: navigate to edit profile
                       },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -140,9 +193,7 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.help_outline,
               label: 'Pusat Bantuan',
-              onTap: () {
-                // TODO: Pusat Bantuan page
-              },
+              onTap: () {},
               isLast: true,
             ),
 
@@ -153,9 +204,7 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.lock_outline,
               label: 'Ubah Security Code',
-              onTap: () {
-                // TODO: Ubah Security Code page
-              },
+              onTap: () {},
             ),
             const _FingerprintTile(),
 
@@ -166,16 +215,12 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.emoji_events_outlined,
               label: 'Keuntungan Pakai Kusaku',
-              onTap: () {
-                // TODO: Keuntungan Pakai Kusaku page
-              },
+              onTap: () {},
             ),
             _MenuTile(
               icon: Icons.menu_book_outlined,
               label: 'Panduan Kusaku',
-              onTap: () {
-                // TODO: Panduan Kusaku page
-              },
+              onTap: () {},
             ),
             _MenuTile(
               icon: Icons.description_outlined,
@@ -248,9 +293,25 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              // TODO: actual sign out logic once login exists
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear(); // Clear the session
+              
+              if (!mounted) return;
+              Navigator.of(ctx).pop(); // Close the dialog
+
+              // This clears the entire stack and uses your pageBuilder
+              Navigator.of(context).pushAndRemoveUntil(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    // You can add custom fade/slide logic here if you want
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  transitionDuration: const Duration(milliseconds: 300),
+                ),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1D4ED8),
@@ -258,13 +319,14 @@ class ProfilePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Ya, Keluar'),
+            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white),), 
           ),
         ],
       ),
     );
   }
 }
+
 
 // ── Section label ──
 class _SectionLabel extends StatelessWidget {

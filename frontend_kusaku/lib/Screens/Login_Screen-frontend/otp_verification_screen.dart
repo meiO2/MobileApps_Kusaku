@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../../Widgets/kusaku_auth_widgets.dart';
-import '../../home_screen.dart';
+import 'package:frontend_kusaku/navbar.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
 	const OtpVerificationScreen({
@@ -52,9 +51,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 			// TODO: Verify OTP with backend
 			// For now, navigate to home on any 6-digit code
 			if (otp.length == 6) {
-				Navigator.of(context).pushReplacement(
-					MaterialPageRoute(builder: (_) => const HomeScreen()),
-				);
+				if (otp.length == 6) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainShell()), 
+          );
+        }
 			}
 		}
 	}

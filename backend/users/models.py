@@ -15,7 +15,6 @@ class AccountManager(BaseUserManager):
             raise ValueError("User harus memiliki alamat email")
         email = self.normalize_email(email)
         
-        # Biar aman, kita set default is_active False di sini untuk user biasa
         extra_fields.setdefault('is_active', False) 
         
         user = self.model(email=email, username=username, **extra_fields)
@@ -24,7 +23,6 @@ class AccountManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, username, password=None, **extra_fields):
-        # WAJIB: Superuser harus True semua biar bisa login & delete
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True) 
@@ -33,7 +31,7 @@ class AccountManager(BaseUserManager):
 
 class Account(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(verbose_name="email address", max_length=255, unique=True)
-    username = models.CharField(max_length=50)
+    username = models.CharField(max_length=50, unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     transaction_password = models.CharField(max_length=128, blank=True, null=True)
     
@@ -42,8 +40,8 @@ class Account(AbstractBaseUser, PermissionsMixin):
 
     objects = AccountManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
 
     def __str__(self):
         return self.email
