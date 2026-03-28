@@ -28,11 +28,17 @@ class SendOTPView(APIView):
 
             otp = str(random.randint(100000, 999999))
 
-            # 🔥 UPDATE OR CREATE (prevent spam)
-            EmailOTP.objects.update_or_create(
+            # 🔥🔥🔥 FIX IS HERE
+            # ❌ remove update_or_create
+            # ✅ delete old + create new
+            EmailOTP.objects.filter(email=email).delete()
+
+            EmailOTP.objects.create(
                 email=email,
-                defaults={'otp': otp}
+                otp=otp
             )
+
+            print("SENT OTP:", otp)  # ✅ debug
 
             send_mail(
                 'Kode OTP Kusaku',

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'otp_verification_screen.dart';
@@ -16,6 +18,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   late final TextEditingController _confirmPasswordController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -119,14 +122,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             keyboardType: TextInputType.phone,
                           ),
                           const SizedBox(height: 30),
+
                           Center(
                             child: KusakuGradientButton(
                               text: 'Sign Up',
-                              onPressed: () {
+                              onPressed: () async {
                                 final username = _usernameController.text.trim();
                                 final password = _passwordController.text.trim();
                                 final confirmPassword = _confirmPasswordController.text.trim();
                                 final phone = _phoneController.text.trim();
+                                final email = _emailController.text.trim();
 
                                 if (username.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -149,28 +154,55 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   return;
                                 }
 
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => OtpVerificationScreen(
-                                      phoneNumber: phone,
-                                      username: username,
-                                      password: password,
-                                    ),
-                                  ),
-                                );
+                                if (email.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Email wajib diisi')),
+                                  );
+                                  return;
+                                }
+
+                                try {
+                                  final response = await http.post(
+                                    Uri.parse("http://10.93.20.130:8000/api/users/send-otp/"),
+                                    headers: {"Content-Type": "application/json"},
+                                    body: jsonEncode({"email": email}),
+                                  );
+
+                                  final data = jsonDecode(response.body);
+
+                                  if (response.statusCode == 200) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => OtpVerificationScreen(
+                                          phoneNumber: phone,
+                                          username: username,
+                                          password: password,
+                                          email: email,
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(data["error"] ?? "Gagal kirim OTP")),
+                                    );
+                                  }
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Terjadi kesalahan koneksi')),
+                                  );
+                                }
                               },
                             ),
                           ),
+
                           const SizedBox(height: 18),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text(
                                 'Already have an account? ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF1F2937),
-                                ),
+                                style: TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
                               ),
                               TextButton(
                                 onPressed: () => Navigator.of(context).pop(),

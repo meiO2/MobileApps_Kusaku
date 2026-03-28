@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../Services/transaction_pin_store.dart';
 import '../../Services/auth_services/user_credentials_store.dart';
@@ -10,19 +12,28 @@ class ConfirmTransactionPinScreen extends StatefulWidget {
     required this.initialPin,
     required this.username,
     required this.password,
+    required this.email,
+    required this.phoneNumber,
+    required this.otp,
     super.key,
   });
 
   final String initialPin;
   final String username;
   final String password;
+  final String email;
+  final String phoneNumber;
+  final String otp;
 
   @override
-  State<ConfirmTransactionPinScreen> createState() => _ConfirmTransactionPinScreenState();
+  State<ConfirmTransactionPinScreen> createState() =>
+      _ConfirmTransactionPinScreenState();
 }
 
-class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScreen> {
+class _ConfirmTransactionPinScreenState
+    extends State<ConfirmTransactionPinScreen> {
   String _confirmPin = '';
+  bool _isLoading = false;
 
   void _onNumberPressed(String value) {
     if (_confirmPin.length >= 6) return;
@@ -38,7 +49,28 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
     });
   }
 
-  void _onConfirmPressed() {
+  Future<void> _registerUser() async {
+    final response = await http.post(
+      Uri.parse("http://10.93.20.130:8000/api/users/register/"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": widget.email,
+        "username": widget.username,
+        "password": widget.password,
+        "phone_number": widget.phoneNumber,
+        "transaction_password": _confirmPin,
+        "otp": widget.otp,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode != 201) {
+      throw Exception(data.toString());
+    }
+  }
+
+  void _onConfirmPressed() async {
     if (_confirmPin.length != 6) return;
 
     if (_confirmPin != widget.initialPin) {
@@ -51,16 +83,34 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
       return;
     }
 
-    TransactionPinStore.setPin(_confirmPin);
-    UserCredentialsStore.setCredentials(
-      username: widget.username,
-      password: widget.password,
-    );
+    setState(() => _isLoading = true);
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
+    try {
+      // 🔥 CALL BACKEND REGISTER
+      await _registerUser();
+
+      // ✅ SAVE LOCALLY
+      TransactionPinStore.setPin(_confirmPin);
+      UserCredentialsStore.setCredentials(
+        username: widget.username,
+        password: widget.password,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Register berhasil')),
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -102,12 +152,14 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
                             const Expanded(
                               child: Text(
                                 'Confirm Transaction Password',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                style: TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w700),
                               ),
                             ),
                             InkWell(
                               onTap: () => Navigator.of(context).pop(),
-                              child: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+                              child: const Icon(Icons.close,
+                                  size: 18, color: Color(0xFF6B7280)),
                             ),
                           ],
                         ),
@@ -117,7 +169,8 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
                           children: List.generate(
                             6,
                             (index) => Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 6),
                               width: 12,
                               height: 12,
                               decoration: BoxDecoration(
@@ -130,27 +183,28 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
                           ),
                         ),
                         const SizedBox(height: 16),
+
                         for (final row in const [
                           ['1', '2', '3'],
                           ['4', '5', '6'],
                           ['7', '8', '9'],
                         ]) ...[
                           Row(
-                            children: row
-                                .map(
-                                  (number) => Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      child: _PinPadButton(
-                                        label: number,
-                                        onTap: () => _onNumberPressed(number),
-                                      ),
-                                    ),
+                            children: row.map((number) {
+                              return Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: _PinPadButton(
+                                    label: number,
+                                    onTap: () =>
+                                        _onNumberPressed(number),
                                   ),
-                                )
-                                .toList(),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ],
+
                         Row(
                           children: [
                             Expanded(
@@ -176,7 +230,7 @@ class _ConfirmTransactionPinScreenState extends State<ConfirmTransactionPinScree
                                 padding: const EdgeInsets.all(5),
                                 child: _PinPadButton(
                                   icon: Icons.check,
-                                  onTap: _onConfirmPressed,
+                                  onTap: _isLoading ? null : _onConfirmPressed,
                                   backgroundColor: _confirmPin.length == 6
                                       ? const Color(0xFF2E13D4)
                                       : const Color(0xFFB6B6D9),
@@ -210,7 +264,7 @@ class _PinPadButton extends StatelessWidget {
 
   final String? label;
   final IconData? icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color backgroundColor;
   final Color foregroundColor;
 
@@ -223,7 +277,8 @@ class _PinPadButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: backgroundColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
         ),
         child: icon != null
             ? Icon(icon, color: foregroundColor, size: 26)

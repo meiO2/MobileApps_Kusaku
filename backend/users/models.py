@@ -35,7 +35,7 @@ class Account(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     transaction_password = models.CharField(max_length=128, blank=True, null=True)
     
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     objects = AccountManager()

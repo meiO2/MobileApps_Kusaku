@@ -28,14 +28,29 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         email = data.get('email')
-        otp = data.get('otp')
+        otp = str(data.get('otp')).strip()
 
-        otp_obj = EmailOTP.objects.filter(email=email, otp=otp).first()
+        # ✅ ALWAYS GET LATEST OTP
+        otp_obj = EmailOTP.objects.filter(email=email).order_by('-created_at').first()
 
         if not otp_obj:
+            raise serializers.ValidationError("OTP tidak ditemukan")
+
+        db_otp = str(otp_obj.otp).strip()
+
+        print("INPUT OTP:", otp)
+        print("DB OTP:", db_otp)
+
+        if db_otp != otp:
             raise serializers.ValidationError("OTP salah")
 
-        if otp_obj.created_at < timezone.now() - timedelta(minutes=5):
+        now = timezone.now()
+        created = otp_obj.created_at
+
+        print("NOW:", now)
+        print("CREATED:", created)
+
+        if now > created + timedelta(minutes=10):
             raise serializers.ValidationError("OTP sudah kadaluarsa")
 
         return data
@@ -48,6 +63,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         user = Account.objects.create(**validated_data)
 
+        # ✅ CLEAN OTP AFTER SUCCESS
         EmailOTP.objects.filter(email=user.email).delete()
 
         return user

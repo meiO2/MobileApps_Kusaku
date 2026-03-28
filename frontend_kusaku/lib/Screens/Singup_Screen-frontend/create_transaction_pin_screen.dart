@@ -7,11 +7,17 @@ class CreateTransactionPinScreen extends StatefulWidget {
   const CreateTransactionPinScreen({
     required this.username,
     required this.password,
+    required this.email,
+    required this.phoneNumber,
+    required this.otp,
     super.key,
   });
 
   final String username;
   final String password;
+  final String email;
+  final String phoneNumber;
+  final String otp;
 
   @override
   State<CreateTransactionPinScreen> createState() => _CreateTransactionPinScreenState();
@@ -36,12 +42,16 @@ class _CreateTransactionPinScreenState extends State<CreateTransactionPinScreen>
 
   void _onConfirmPressed() {
     if (_pin.length != 6) return;
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ConfirmTransactionPinScreen(
           initialPin: _pin,
           username: widget.username,
           password: widget.password,
+          email: widget.email,
+          phoneNumber: widget.phoneNumber,
+          otp: widget.otp,
         ),
       ),
     );
@@ -106,33 +116,35 @@ class _CreateTransactionPinScreenState extends State<CreateTransactionPinScreen>
                               height: 12,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: index < _pin.length ? const Color(0xFF3743C8) : const Color(0xFFD9D9D9),
+                                color: index < _pin.length
+                                    ? const Color(0xFF3743C8)
+                                    : const Color(0xFFD9D9D9),
                               ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
+
                         for (final row in const [
                           ['1', '2', '3'],
                           ['4', '5', '6'],
                           ['7', '8', '9'],
                         ]) ...[
                           Row(
-                            children: row
-                                .map(
-                                  (number) => Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      child: _PinPadButton(
-                                        label: number,
-                                        onTap: () => _onNumberPressed(number),
-                                      ),
-                                    ),
+                            children: row.map((number) {
+                              return Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: _PinPadButton(
+                                    label: number,
+                                    onTap: () => _onNumberPressed(number),
                                   ),
-                                )
-                                .toList(),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ],
+
                         Row(
                           children: [
                             Expanded(
