@@ -1,0 +1,369 @@
+import 'package:flutter/material.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_points_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_stamp_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
+
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1D4ED8),
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+        automaticallyImplyLeading: false,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+
+            // ── User Card ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color.fromARGB(255, 0, 0, 0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Avatar — blank person icon
+                    Container(
+                      width: 55,
+                      height: 55,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE5E7EB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Color(0xFF9CA3AF),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Name & phone — will come from login later
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Username',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'No. Telepon',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Ubah button
+                    TextButton(
+                      onPressed: () {
+                        // TODO: navigate to edit profile once login exists
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Ubah',
+                        style: TextStyle(
+                          color: Color(0xFF1D4ED8),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Section: Reward ──
+            const _SectionLabel(label: 'Reward'),
+            _MenuTile(
+              icon: Icons.add_box_outlined,
+              label: 'Kusaku Points',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KusakuPointsPage()),
+              ),
+            ),
+            _MenuTile(
+              icon: Icons.card_giftcard_outlined,
+              label: 'Kusaku Stamp',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KusakuStampPage()),
+              ),
+              isLast: true,
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Section: Bantuan ──
+            const _SectionLabel(label: 'Bantuan'),
+            _MenuTile(
+              icon: Icons.help_outline,
+              label: 'Pusat Bantuan',
+              onTap: () {
+                // TODO: Pusat Bantuan page
+              },
+              isLast: true,
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Section: Keamanan ──
+            const _SectionLabel(label: 'Keamanan'),
+            _MenuTile(
+              icon: Icons.lock_outline,
+              label: 'Ubah Security Code',
+              onTap: () {
+                // TODO: Ubah Security Code page
+              },
+            ),
+            const _FingerprintTile(),
+
+            const SizedBox(height: 20),
+
+            // ── Section: Tentang ──
+            const _SectionLabel(label: 'Tentang'),
+            _MenuTile(
+              icon: Icons.emoji_events_outlined,
+              label: 'Keuntungan Pakai Kusaku',
+              onTap: () {
+                // TODO: Keuntungan Pakai Kusaku page
+              },
+            ),
+            _MenuTile(
+              icon: Icons.menu_book_outlined,
+              label: 'Panduan Kusaku',
+              onTap: () {
+                // TODO: Panduan Kusaku page
+              },
+            ),
+            _MenuTile(
+              icon: Icons.description_outlined,
+              label: 'Syarat dan Ketentuan',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SyaratKetentuanPage()),
+              ),
+            ),
+            _MenuTile(
+              icon: Icons.security_outlined,
+              label: 'Kebijakan Privasi',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KebijakanPrivasiPage()),
+              ),
+              isLast: true,
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Sign Out Button ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => _showSignOutDialog(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1D4ED8),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Sign Out',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: const Text('Apakah kamu yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // TODO: actual sign out logic once login exists
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1D4ED8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Ya, Keluar'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Section label ──
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 6),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF374151),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Generic menu tile ──
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(icon, color: const Color(0xFF374151), size: 22),
+            title: Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF111827)),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: Color(0xFF9CA3AF),
+              size: 20,
+            ),
+            onTap: onTap,
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          ),
+          if (!isLast)
+            const Divider(
+              height: 1,
+              thickness: 0.5,
+              indent: 52,
+              color: Color(0xFFE5E7EB),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Fingerprint toggle tile ──
+class _FingerprintTile extends StatefulWidget {
+  const _FingerprintTile();
+
+  @override
+  State<_FingerprintTile> createState() => _FingerprintTileState();
+}
+
+class _FingerprintTileState extends State<_FingerprintTile> {
+  bool _enabled = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      child: ListTile(
+        leading: const Icon(Icons.fingerprint, color: Color(0xFF374151), size: 22),
+        title: const Text(
+          'Fingerprint',
+          style: TextStyle(fontSize: 14, color: Color(0xFF111827)),
+        ),
+        trailing: Switch(
+          value: _enabled,
+          onChanged: (val) => setState(() => _enabled = val),
+          activeColor: const Color(0xFF1D4ED8),
+        ),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      ),
+    );
+  }
+}
