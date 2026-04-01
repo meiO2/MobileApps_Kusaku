@@ -9,6 +9,8 @@ import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
 import '../../Screens/Login_Screen-frontend/login_screen.dart';
 
+import '../../config/api_config.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -36,7 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // Call your backend Profile Search API
       final response = await http.get(
-        Uri.parse('http://10.93.20.130:8000/api/users/profile/$userId/'),
+        Uri.parse('${ApiConfig.baseUrl}users/send-otp/'),
       );
 
       if (response.statusCode == 200) {

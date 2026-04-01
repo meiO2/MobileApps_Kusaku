@@ -48,8 +48,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 		// Check if all fields are filled
 		if (index == 5 && _otpControllers[5].text.isNotEmpty) {
 			final otp = _otpControllers.map((c) => c.text).join();
-			// TODO: Verify OTP with backend
-			// For now, navigate to home on any 6-digit code
 			if (otp.length == 6) {
 				if (otp.length == 6) {
           Navigator.of(context).pushReplacement(

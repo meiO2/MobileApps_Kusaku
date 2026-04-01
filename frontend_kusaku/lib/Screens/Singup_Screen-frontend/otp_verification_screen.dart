@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'create_transaction_pin_screen.dart';
 
+import '../../config/api_config.dart';
+
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({
     required this.phoneNumber,
@@ -42,7 +44,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  // ✅ clear OTP fields after resend
   void _clearOtpFields() {
     for (var controller in _otpControllers) {
       controller.clear();
@@ -66,7 +67,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
 
     if (index == 5) {
-      // ✅ ensure last digit is registered
       await Future.delayed(const Duration(milliseconds: 120));
 
       final otp = _otpControllers.map((c) => c.text.trim()).join();
@@ -95,7 +95,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     return width.clamp(34, 44).toDouble();
   }
 
-  // ✅ resend OTP with proper handling
   Future<void> _resendOtp() async {
     if (_isLoading) return;
 
@@ -103,7 +102,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://10.93.20.130:8000/api/users/send-otp/"),
+        Uri.parse('${ApiConfig.baseUrl}users/send-otp/'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": widget.email}),
       );

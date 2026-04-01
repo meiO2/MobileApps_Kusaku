@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'forgot_password_otp_screen.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+import '../../config/api_config.dart';
+
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -11,18 +15,79 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _phoneController = TextEditingController(text: '+62');
+    _emailController = TextEditingController();
   }
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSendOtp() async {
+    if (_isLoading) return;
+
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email wajib diisi')),
+      );
+      return;
+    }
+
+    if (!email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Format email tidak valid')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}users/send-otp/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ForgotPasswordOtpScreen(email: email),
+          ),
+        );
+      } else {
+        final data = jsonDecode(response.body);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              data['error'] ?? data.toString(),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -58,42 +123,36 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 padding: EdgeInsets.zero,
                                 foregroundColor: Colors.black87,
                               ),
-                              child: const Text('< Back', style: TextStyle(fontSize: 11)),
+                              child: const Text(
+                                '< Back',
+                                style: TextStyle(fontSize: 11),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 26),
                           const Text(
                             'Forgot Password',
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
                           KusakuInputField(
-                            controller: _phoneController,
-                            hintText: '+62',
-                            icon: Icons.smartphone,
-                            keyboardType: TextInputType.phone,
+                            controller: _emailController,
+                            hintText: 'Enter your email',
+                            icon: Icons.email,
+                            keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 32),
                           Center(
-                            child: KusakuGradientButton(
-                              text: 'Next',
-                              onPressed: () {
-                                final phone = _phoneController.text.trim();
-                                if (phone.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Nomor telepon wajib diisi')),
-                                  );
-                                  return;
-                                }
-
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => ForgotPasswordOtpScreen(phoneNumber: phone),
+                            child: _isLoading
+                                ? const CircularProgressIndicator()
+                                : KusakuGradientButton(
+                                    text: 'Next',
+                                    onPressed: _handleSendOtp,
                                   ),
-                                );
-                              },
-                            ),
                           ),
                           const SizedBox(height: 24),
                         ],
