@@ -126,7 +126,6 @@ class SendForgotPasswordOTPView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data['email']
 
-            # ✅ MUST EXIST (this is the key difference)
             if not Account.objects.filter(email=email).exists():
                 return Response(
                     {"error": "Email tidak terdaftar"},

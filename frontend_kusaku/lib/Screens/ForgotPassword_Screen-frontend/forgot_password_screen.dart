@@ -53,7 +53,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}users/send-otp/'),
+        Uri.parse('${ApiConfig.baseUrl}users/forgot-password/send-otp/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
