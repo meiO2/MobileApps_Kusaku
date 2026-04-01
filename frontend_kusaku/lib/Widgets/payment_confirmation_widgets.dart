@@ -358,3 +358,237 @@ class PaymentMerchantCard extends StatelessWidget {
   }
 }
 
+class PaymentCategorySection extends StatelessWidget {
+  const PaymentCategorySection({
+    required this.selectedCategory,
+    required this.categories,
+    required this.selectedIndex,
+    this.isCategoryOpen,
+    this.showSavingConfirmation,
+    required this.onToggleCategory,
+    required this.onSelectCategory,
+    required this.onCancelSavingCategory,
+    required this.onConfirmSavingCategory,
+    super.key,
+  });
+
+  final PaymentCategoryOption selectedCategory;
+  final List<PaymentCategoryOption> categories;
+  final int selectedIndex;
+  final bool? isCategoryOpen;
+  final bool? showSavingConfirmation;
+  final VoidCallback onToggleCategory;
+  final ValueChanged<int> onSelectCategory;
+  final VoidCallback onCancelSavingCategory;
+  final VoidCallback onConfirmSavingCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: PaymentConfirmationColors.sectionBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFB9DCE2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Kategori Transaksi',
+                style: TextStyle(
+                  fontSize: 35 / 2,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+              ),
+              Text(
+                '(AI Rekomendasi)',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          PaymentCategoryTile(
+            title: selectedCategory.name,
+            subtitle: 'Sisa bulan ini',
+            amount: selectedCategory.amount,
+            icon: selectedCategory.icon,
+            highlightColor: selectedCategory.isSaving == true
+                ? PaymentConfirmationColors.savingCategoryBg
+                : null,
+          ),
+          const SizedBox(height: 8),
+          if (showSavingConfirmation == true) ...[
+            const SizedBox(height: 6),
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: SavingCategoryConfirmation(
+                  onCancel: onCancelSavingCategory,
+                  onContinue: onConfirmSavingCategory,
+                ),
+              ),
+            ),
+          ] else ...[
+            Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: onToggleCategory,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.drive_file_rename_outline, size: 17, color: PaymentConfirmationColors.paymentMethodText),
+                      SizedBox(width: 3),
+                      Text(
+                        'Ubah Kategori',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: PaymentConfirmationColors.paymentMethodText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (isCategoryOpen == true)
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    primary: false,
+                    itemCount: categories.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final item = categories[index];
+                      final isSelected = index == selectedIndex;
+                      Color? fillColor;
+                      if (item.isSaving == true) {
+                        fillColor = PaymentConfirmationColors.savingCategoryBg;
+                      } else if (isSelected) {
+                        fillColor = PaymentConfirmationColors.selectedCategoryBg;
+                      }
+
+                      return PaymentCategoryTile(
+                        title: item.name,
+                        subtitle: 'Sisa bulan ini',
+                        amount: item.amount,
+                        icon: item.icon,
+                        highlightColor: fillColor,
+                        onTap: () => onSelectCategory(index),
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class SavingCategoryConfirmation extends StatelessWidget {
+  const SavingCategoryConfirmation({
+    required this.onCancel,
+    required this.onContinue,
+    super.key,
+  });
+
+  final VoidCallback onCancel;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      decoration: BoxDecoration(
+        color: PaymentConfirmationColors.savingConfirmationBg,
+        border: Border.all(color: const Color(0xFF6B6B6B)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Kamu akan menggunakan saldo tabungan. Pastikan ini benar-benar diperlukan.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFFF2323),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              height: 1.05,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: ElevatedButton(
+                    onPressed: onCancel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Kembali',
+                      style: TextStyle(
+                        color: Color(0xFF373737),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: ElevatedButton(
+                    onPressed: onContinue,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Lanjutkan',
+                      style: TextStyle(
+                        color: Color(0xFF373737),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
