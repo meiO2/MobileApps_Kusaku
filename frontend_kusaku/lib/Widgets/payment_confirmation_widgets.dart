@@ -99,41 +99,74 @@ class PaymentCardShell extends StatelessWidget {
   }
 }
 
-class PaymentMethodTag extends StatelessWidget {
-  const PaymentMethodTag({required this.label, this.icon, super.key});
+class PaymentDetailsSection extends StatelessWidget {
+  const PaymentDetailsSection({required this.items, super.key});
 
-  final String label;
-  final IconData? icon;
+  final List<PaymentDetailItem> items;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: PaymentConfirmationColors.paymentMethodBg,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x30000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
+        color: PaymentConfirmationColors.sectionBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFB9DCE2)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (icon != null) ...[
-            Icon(icon, color: PaymentConfirmationColors.paymentMethodText, size: 18),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF081223),
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              height: 1.15,
+          const Padding(
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: Text(
+              'Rincian Pembayaran',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+            child: PaymentCardShell(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                separatorBuilder: (context, index) => const Divider(
+                  height: 18,
+                  color: Color(0xFFE5E1E1),
+                ),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.label,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            color: PaymentConfirmationColors.detailLabel,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          item.value,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: item.valueColor ?? Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -141,3 +174,94 @@ class PaymentMethodTag extends StatelessWidget {
     );
   }
 }
+
+class PaymentDetailItem {
+  PaymentDetailItem({required this.label, required this.value, this.valueColor});
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+}
+
+class PaymentCategoryTile extends StatelessWidget {
+  const PaymentCategoryTile({
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.icon,
+    this.highlightColor,
+    this.onTap,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final String amount;
+  final IconData icon;
+  final Color? highlightColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: highlightColor ?? Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD6D9DE)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCE8FF),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: const Color(0xFF407CFF), size: 24),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              amount,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: PaymentConfirmationColors.categoryAmount,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
