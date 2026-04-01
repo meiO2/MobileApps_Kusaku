@@ -265,3 +265,96 @@ class PaymentCategoryTile extends StatelessWidget {
   }
 }
 
+class PaymentCategoryOption {
+  const PaymentCategoryOption(
+    this.name,
+    this.icon,
+    this.amount, {
+    this.isSaving = false,
+  });
+
+  final String name;
+  final IconData icon;
+  final String amount;
+  final bool? isSaving;
+}
+
+class PaymentMerchantCard extends StatelessWidget {
+  const PaymentMerchantCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      child: PaymentCardShell(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFC2C2C2)),
+                color: const Color(0xFFF2F6F8),
+              ),
+              child: const Center(
+                child: Text(
+                  'S',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2A7A57),
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Starbucek',
+                    style: TextStyle(
+                      fontSize: 39 / 2,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'a.n. PT Starbucek Indonesia',
+                    style: TextStyle(
+                      fontSize: 32 / 2,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 14, color: Colors.black87),
+                      SizedBox(width: 6),
+                      Text(
+                        '1 Maret 2026 | 12.00 WIB',
+                        style: TextStyle(
+                          fontSize: 31 / 2,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
