@@ -19,6 +19,21 @@ class PaymentConfirmationColors {
   static const Color borderGrey = Color(0xFFD5D8DE);
 }
 
+String formatPaymentCurrency(int amount) {
+  final digits = amount.toString();
+  final buffer = StringBuffer();
+
+  for (var index = 0; index < digits.length; index++) {
+    final reversedIndex = digits.length - index;
+    buffer.write(digits[index]);
+    if (reversedIndex > 1 && reversedIndex % 3 == 1) {
+      buffer.write('.');
+    }
+  }
+
+  return 'Rp ${buffer.toString()}';
+}
+
 class PaymentConfirmationHeader extends StatelessWidget {
   const PaymentConfirmationHeader({required this.title, super.key});
 
@@ -60,6 +75,47 @@ class PaymentConfirmationHeader extends StatelessWidget {
               fontSize: 18,
               fontWeight: FontWeight.w600,
               height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentMethodTag extends StatelessWidget {
+  const PaymentMethodTag({
+    required this.label,
+    required this.icon,
+    super.key,
+  });
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: PaymentConfirmationColors.paymentMethodBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: PaymentConfirmationColors.paymentMethodText,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: PaymentConfirmationColors.paymentMethodText,
             ),
           ),
         ],
@@ -176,7 +232,11 @@ class PaymentDetailsSection extends StatelessWidget {
 }
 
 class PaymentDetailItem {
-  PaymentDetailItem({required this.label, required this.value, this.valueColor});
+  const PaymentDetailItem({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
 
   final String label;
   final String value;
@@ -269,14 +329,18 @@ class PaymentCategoryOption {
   const PaymentCategoryOption(
     this.name,
     this.icon,
-    this.amount, {
+    this.remainingAmount, {
+    this.subtitle = 'Sisa bulan ini',
     this.isSaving = false,
   });
 
   final String name;
   final IconData icon;
-  final String amount;
-  final bool? isSaving;
+  final int remainingAmount;
+  final String subtitle;
+  final bool isSaving;
+
+  String get amountLabel => formatPaymentCurrency(remainingAmount);
 }
 
 class PaymentMerchantCard extends StatelessWidget {
@@ -363,8 +427,8 @@ class PaymentCategorySection extends StatelessWidget {
     required this.selectedCategory,
     required this.categories,
     required this.selectedIndex,
-    this.isCategoryOpen,
-    this.showSavingConfirmation,
+    required this.isCategoryOpen,
+    required this.showSavingConfirmation,
     required this.onToggleCategory,
     required this.onSelectCategory,
     required this.onCancelSavingCategory,
@@ -375,8 +439,8 @@ class PaymentCategorySection extends StatelessWidget {
   final PaymentCategoryOption selectedCategory;
   final List<PaymentCategoryOption> categories;
   final int selectedIndex;
-  final bool? isCategoryOpen;
-  final bool? showSavingConfirmation;
+  final bool isCategoryOpen;
+  final bool showSavingConfirmation;
   final VoidCallback onToggleCategory;
   final ValueChanged<int> onSelectCategory;
   final VoidCallback onCancelSavingCategory;
@@ -419,15 +483,15 @@ class PaymentCategorySection extends StatelessWidget {
           const SizedBox(height: 9),
           PaymentCategoryTile(
             title: selectedCategory.name,
-            subtitle: 'Sisa bulan ini',
-            amount: selectedCategory.amount,
+            subtitle: selectedCategory.subtitle,
+            amount: selectedCategory.amountLabel,
             icon: selectedCategory.icon,
-            highlightColor: selectedCategory.isSaving == true
+            highlightColor: selectedCategory.isSaving
                 ? PaymentConfirmationColors.savingCategoryBg
                 : null,
           ),
           const SizedBox(height: 8),
-          if (showSavingConfirmation == true) ...[
+          if (showSavingConfirmation) ...[
             const SizedBox(height: 6),
             Expanded(
               child: Align(
@@ -464,7 +528,7 @@ class PaymentCategorySection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            if (isCategoryOpen == true)
+            if (isCategoryOpen)
               Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -477,7 +541,7 @@ class PaymentCategorySection extends StatelessWidget {
                       final item = categories[index];
                       final isSelected = index == selectedIndex;
                       Color? fillColor;
-                      if (item.isSaving == true) {
+                      if (item.isSaving) {
                         fillColor = PaymentConfirmationColors.savingCategoryBg;
                       } else if (isSelected) {
                         fillColor = PaymentConfirmationColors.selectedCategoryBg;
@@ -485,8 +549,8 @@ class PaymentCategorySection extends StatelessWidget {
 
                       return PaymentCategoryTile(
                         title: item.name,
-                        subtitle: 'Sisa bulan ini',
-                        amount: item.amount,
+                        subtitle: item.subtitle,
+                        amount: item.amountLabel,
                         icon: item.icon,
                         highlightColor: fillColor,
                         onTap: () => onSelectCategory(index),
@@ -605,7 +669,7 @@ class PaymentActionButtons extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onConfirm;
   final String confirmText;
-  final bool? isCancelEnabled;
+  final bool isCancelEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -617,7 +681,7 @@ class PaymentActionButtons extends StatelessWidget {
             child: SizedBox(
               height: 46,
               child: ElevatedButton(
-                onPressed: isCancelEnabled != false ? onCancel : null,
+                onPressed: isCancelEnabled ? onCancel : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PaymentConfirmationColors.buttonCancel,
                   elevation: 0,
