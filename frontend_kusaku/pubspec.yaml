@@ -64,6 +64,7 @@ flutter:
     - assets/images/Logo.png
     - assets/images/KUSAKU.png
     - assets/images/Ayo Atur Pengeluaranmu!.png
+    - assets/images/Vector.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

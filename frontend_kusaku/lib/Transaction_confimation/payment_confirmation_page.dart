@@ -11,6 +11,7 @@ class PaymentConfirmationPage extends StatefulWidget {
 }
 
 class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
+  static const int _paymentAmount = 50000;
   static const List<PaymentDetailItem> _paymentDetails = [
     PaymentDetailItem(
       label: 'Harga',
@@ -31,6 +32,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
 
   bool _isCategoryOpen = false;
   bool _showSavingConfirmation = false;
+  bool _isPaymentSuccessful = false;
   int? _previousSelectedIndex;
 
   final List<PaymentCategoryOption> _categories = const [
@@ -71,22 +73,32 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                     ),
                     const SizedBox(height: 12),
                     const PaymentMerchantCard(),
-                    const SizedBox(height: 10),
-                    const PaymentDetailsSection(items: _paymentDetails),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: PaymentCategorySection(
-                        selectedCategory: selected,
-                        categories: _categories,
-                        selectedIndex: _selectedIndex,
-                        isCategoryOpen: _isCategoryOpen,
-                        showSavingConfirmation: _showSavingConfirmation,
-                        onToggleCategory: _toggleCategory,
-                        onSelectCategory: _selectCategory,
-                        onCancelSavingCategory: _cancelSavingCategory,
-                        onConfirmSavingCategory: _confirmSavingCategory,
+                    if (_isPaymentSuccessful) ...[
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: _PaymentSuccessSection(
+                          amountLabel: formatPaymentCurrency(_paymentAmount),
+                          onBack: () => Navigator.of(context).maybePop(),
+                        ),
                       ),
-                    ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      const PaymentDetailsSection(items: _paymentDetails),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: PaymentCategorySection(
+                          selectedCategory: selected,
+                          categories: _categories,
+                          selectedIndex: _selectedIndex,
+                          isCategoryOpen: _isCategoryOpen,
+                          showSavingConfirmation: _showSavingConfirmation,
+                          onToggleCategory: _toggleCategory,
+                          onSelectCategory: _selectCategory,
+                          onCancelSavingCategory: _cancelSavingCategory,
+                          onConfirmSavingCategory: _confirmSavingCategory,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -94,17 +106,21 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          color: PaymentConfirmationColors.pageBg,
-          child: PaymentActionButtons(
-            onCancel: () => Navigator.of(context).maybePop(),
-            onConfirm: _handlePaymentConfirmation,
-            confirmText: 'Bayar',
-          ),
-        ),
-      ),
+      bottomNavigationBar: _isPaymentSuccessful
+          ? null
+          : SafeArea(
+              top: false,
+              child: Container(
+                color: PaymentConfirmationColors.pageBg,
+                child: PaymentActionButtons(
+                  onCancel: () => Navigator.of(context).maybePop(),
+                  onConfirm: () {
+                    _handlePaymentConfirmation();
+                  },
+                  confirmText: 'Bayar',
+                ),
+              ),
+            ),
     );
   }
 
@@ -120,13 +136,12 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
       return;
     }
 
-    // PIN is collected here for the upcoming backend payment verification flow.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Pembayaran diproses...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    setState(() {
+      _isPaymentSuccessful = true;
+      _isCategoryOpen = false;
+      _showSavingConfirmation = false;
+      _previousSelectedIndex = null;
+    });
   }
 
   void _toggleCategory() {
@@ -170,5 +185,146 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
       _previousSelectedIndex = null;
       _showSavingConfirmation = false;
     });
+  }
+}
+
+class _PaymentSuccessSection extends StatelessWidget {
+  const _PaymentSuccessSection({
+    required this.amountLabel,
+    required this.onBack,
+  });
+
+  final String amountLabel;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 18),
+      decoration: BoxDecoration(
+        color: PaymentConfirmationColors.headerDark,
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Transaksi',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Divider(color: Colors.white60, thickness: 1),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Image.asset(
+                  'assets/images/Vector.png',
+                  height: 94,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Payment Successful!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF72D44D),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  amountLabel,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _PaymentSuccessInfoRow(
+                  label: 'Produk',
+                  value: 'Starbucek',
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: Colors.white60, thickness: 1),
+                const SizedBox(height: 18),
+                const _PaymentSuccessInfoRow(
+                  label: 'Metode Pembayaran',
+                  value: 'Qris Kusaku',
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: onBack,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'Kembali',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentSuccessInfoRow extends StatelessWidget {
+  const _PaymentSuccessInfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 }
