@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../Widgets/kusaku_auth_widgets.dart';
 import '../Widgets/payment_confirmation_widgets.dart';
 
 class PaymentConfirmationPage extends StatefulWidget {
@@ -106,7 +108,19 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
     );
   }
 
-  void _handlePaymentConfirmation() {
+  Future<void> _handlePaymentConfirmation() async {
+    final enteredPin = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => const KusakuPinInputDialog(
+        title: 'Masukan PIN',
+      ),
+    );
+
+    if (!mounted || enteredPin == null) {
+      return;
+    }
+
+    // PIN is collected here for the upcoming backend payment verification flow.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Pembayaran diproses...'),
