@@ -592,3 +592,76 @@ class SavingCategoryConfirmation extends StatelessWidget {
     );
   }
 }
+
+class PaymentActionButtons extends StatelessWidget {
+  const PaymentActionButtons({
+    required this.onCancel,
+    required this.onConfirm,
+    required this.confirmText,
+    this.isCancelEnabled = true,
+    super.key,
+  });
+
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final String confirmText;
+  final bool? isCancelEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 46,
+              child: ElevatedButton(
+                onPressed: isCancelEnabled != false ? onCancel : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PaymentConfirmationColors.buttonCancel,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                child: const Text(
+                  'Batal',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: SizedBox(
+              height: 46,
+              child: ElevatedButton(
+                onPressed: onConfirm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PaymentConfirmationColors.buttonPay,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                child: Text(
+                  confirmText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
