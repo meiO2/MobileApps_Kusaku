@@ -14,14 +14,6 @@ class Category(models.Model):
         return self.name
 
 
-class UserBalance(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='balance')
-    total_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-
-    def __str__(self):
-        return f"{self.user} - {self.total_balance}"
-
-
 class CategoryBudget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budgets')
@@ -36,7 +28,10 @@ class CategoryBudget(models.Model):
 
 class Expense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT
+    )
 
     total_payment = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)

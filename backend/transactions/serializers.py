@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Expense, Income, CategoryBudget, UserBalance
+from .models import Category, Expense, Income, CategoryBudget
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -14,12 +14,6 @@ class CategoryBudgetSerializer(serializers.ModelSerializer):
     class Meta:
         model = CategoryBudget
         fields = ['id', 'category', 'percentage']
-
-
-class UserBalanceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserBalance
-        fields = ['total_balance']
 
 
 class ExpenseSerializer(serializers.ModelSerializer):

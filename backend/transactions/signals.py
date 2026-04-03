@@ -2,7 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
 
-from .models import Category, CategoryBudget, UserBalance
+from .models import Category, CategoryBudget
 
 User = settings.AUTH_USER_MODEL
 
@@ -23,10 +23,6 @@ DEFAULT_CATEGORIES = [
 @receiver(post_save, sender=User)
 def create_user_defaults(sender, instance, created, **kwargs):
     if created:
-        # create balance
-        UserBalance.objects.create(user=instance)
-
-        # create categories + budgets
         for name in DEFAULT_CATEGORIES:
             category = Category.objects.create(user=instance, name=name)
 

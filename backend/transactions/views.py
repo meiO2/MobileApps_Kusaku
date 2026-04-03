@@ -2,14 +2,17 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from rest_framework import status
+from django.db.models import Sum
+from django.db import transaction
+from rest_framework import status
 
-from .models import Category, Expense, Income, CategoryBudget, UserBalance
+from .models import Category, Expense, Income, CategoryBudget
 from .serializers import (
     CategorySerializer,
     ExpenseSerializer,
     IncomeSerializer,
     CategoryBudgetSerializer,
-    UserBalanceSerializer
 )
 
 class CategoryListView(APIView):
@@ -39,35 +42,82 @@ class BudgetView(APIView):
         return Response(CategoryBudgetSerializer(budgets, many=True).data)
 
     def put(self, request):
-        data = request.data  # list of {category_id, percentage}
+        data = request.data
 
-        total = sum(item['percentage'] for item in data)
-        if total > 100:
-            return Response({"error": "Total percentage cannot exceed 100%"}, status=400)
-
-        for item in data:
-            budget = CategoryBudget.objects.get(
-                user=request.user,
-                category_id=item['category_id']
+        if not isinstance(data, list):
+            return Response(
+                {"error": "Invalid data format, expected a list"},
+                status=status.HTTP_400_BAD_REQUEST
             )
-            budget.percentage = item['percentage']
-            budget.save()
 
-        return Response({"message": "Budget updated"})
+        total = sum(item.get('percentage', 0) for item in data)
+        if total > 100 or total < 0:
+            return Response(
+                {"error": "Total percentage must be between 0 and 100"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            for item in data:
+                category_id = item.get('category_id')
+
+                if not category_id:
+                    return Response(
+                        {"error": "category_id is required"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                category = get_object_or_404(
+                    Category,
+                    id=category_id,
+                    user=request.user
+                )
+
+                if "name" in item:
+                    category.name = item["name"]
+
+                if "is_active" in item:
+                    category.is_active = item["is_active"]
+
+                category.save()
+
+                budget = get_object_or_404(
+                    CategoryBudget,
+                    user=request.user,
+                    category=category
+                )
+
+                if "percentage" in item:
+                    budget.percentage = item["percentage"]
+
+                budget.save()
+
+        return Response(
+            {"message": "Budget updated successfully"},
+            status=status.HTTP_200_OK
+        )
 
 class BalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        balance = get_object_or_404(UserBalance, user=request.user)
-        return Response(UserBalanceSerializer(balance).data)
+        total_income = Income.objects.filter(user=request.user).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
 
-    def put(self, request):
-        balance = get_object_or_404(UserBalance, user=request.user)
-        balance.total_balance = request.data.get("total_balance", balance.total_balance)
-        balance.save()
+        expenses = Expense.objects.filter(user=request.user)
+        total_expense = sum(
+            e.total_payment + e.transaction_fee
+            for e in expenses
+        )
 
-        return Response(UserBalanceSerializer(balance).data)
+        balance = total_income - total_expense
+
+        return Response({
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "balance": balance
+        })
     
 class ExpenseView(APIView):
     permission_classes = [IsAuthenticated]
