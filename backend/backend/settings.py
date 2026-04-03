@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     #API
     'users',
     'ads',
+    'transactions.apps.TransactionsConfig',
 ]
 
 MIDDLEWARE = [
