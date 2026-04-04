@@ -85,3 +85,86 @@ class HistoryTabChip extends StatelessWidget {
     );
   }
 }
+
+class HistoryTransactionList extends StatelessWidget {
+  final List<HistorySection> sections;
+  final bool isDimmed;
+  final HistoryTab selectedTab;
+  final ValueChanged<HistoryTab> onTabSelected;
+
+  const HistoryTransactionList({
+    super.key,
+    required this.sections,
+    required this.isDimmed,
+    required this.selectedTab,
+    required this.onTabSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: isDimmed ? 0.4 : 1,
+      child: IgnorePointer(
+        ignoring: isDimmed,
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
+          itemCount: sections.length + 1,
+          itemBuilder: (context, sectionIndex) {
+            if (sectionIndex == 0) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: HistoryTabChip(
+                        label: 'Semua',
+                        isSelected: selectedTab == HistoryTab.all,
+                        onTap: () => onTabSelected(HistoryTab.all),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: HistoryTabChip(
+                        label: 'Pemasukan',
+                        isSelected: selectedTab == HistoryTab.income,
+                        onTap: () => onTabSelected(HistoryTab.income),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: HistoryTabChip(
+                        label: 'Pengeluaran',
+                        isSelected: selectedTab == HistoryTab.expense,
+                        onTap: () => onTabSelected(HistoryTab.expense),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final section = sections[sectionIndex - 1];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+                  child: Text(
+                    section.title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                ),
+                for (final transaction in section.transactions)
+                  HistoryTransactionTile(transaction: transaction),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
