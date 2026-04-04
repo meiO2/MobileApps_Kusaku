@@ -1,11 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_points_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_stamp_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/keuntungan_kusaku_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_profile_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/pusat_bantuan_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_security_code_page.dart';
 
-class ProfilePage extends StatelessWidget {
+
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  void _showSignOutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: const Text('Apakah kamu yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color.fromARGB(255, 100, 104, 112)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // TODO: actual sign out logic
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1D4ED8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +97,6 @@ class ProfilePage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Avatar — blank person icon
                     Container(
                       width: 55,
                       height: 55,
@@ -65,7 +111,6 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Name & phone — will come from login later
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,11 +134,10 @@ class ProfilePage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // Ubah button
                     TextButton(
-                      onPressed: () {
-                        // TODO: navigate to edit profile once login exists
-                      },
+                          onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const UbahProfilePage()),
+                        ),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -140,9 +184,9 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.help_outline,
               label: 'Pusat Bantuan',
-              onTap: () {
-                // TODO: Pusat Bantuan page
-              },
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PusatBantuanPage()),
+                ),
               isLast: true,
             ),
 
@@ -153,9 +197,9 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.lock_outline,
               label: 'Ubah Security Code',
-              onTap: () {
-                // TODO: Ubah Security Code page
-              },
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UbahSecurityCodePage()),
+              ),
             ),
             const _FingerprintTile(),
 
@@ -166,16 +210,16 @@ class ProfilePage extends StatelessWidget {
             _MenuTile(
               icon: Icons.emoji_events_outlined,
               label: 'Keuntungan Pakai Kusaku',
-              onTap: () {
-                // TODO: Keuntungan Pakai Kusaku page
-              },
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KeuntunganKusakuPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.menu_book_outlined,
               label: 'Panduan Kusaku',
-              onTap: () {
-                // TODO: Panduan Kusaku page
-              },
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PanduanKusakuPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.description_outlined,
@@ -202,7 +246,7 @@ class ProfilePage extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () => _showSignOutDialog(context),
+                  onPressed: _showSignOutDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1D4ED8),
                     foregroundColor: Colors.white,
@@ -225,42 +269,6 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 32),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showSignOutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: const Text('Apakah kamu yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Color.fromARGB(255, 100, 104, 112)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              // TODO: actual sign out logic once login exists
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D4ED8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white)), 
-          ),
-        ],
       ),
     );
   }

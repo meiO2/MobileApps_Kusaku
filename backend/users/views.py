@@ -32,7 +32,7 @@ class SendOTPView(APIView):
 
             send_mail(
                 'Kode OTP Kusaku',
-                f'Kode OTP kamu adalah {otp}',
+                (f'Kode OTP kamu adalah {otp}' 'Tes Tes'),
                 settings.EMAIL_HOST_USER,
                 [email],
                 fail_silently=False,
