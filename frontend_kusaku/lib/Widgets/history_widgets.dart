@@ -14,34 +14,37 @@ class HistoryTopSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF29459B),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
-      ),
+      color: const Color(0xFF29459B),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-        child: Column(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Text(
-                  'Mutasi KUSAKU',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+            const SizedBox(width: 36),
+            Expanded(
+              child: Text(
+                'Mutasi KUSAKU',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: onFilterPressed,
-                  child: const Icon(
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: onFilterPressed,
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(
                     Icons.tune_rounded,
                     color: Colors.white,
-                    size: 22,
+                    size: 28,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -65,20 +68,20 @@ class HistoryTabChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSelected ? const Color(0xFF2D79FF) : const Color(0xFFD1D5DB),
-      borderRadius: BorderRadius.circular(10),
+      color: isSelected ? const Color(0xFF2273F6) : const Color(0xFFDDEBFF),
+      borderRadius: BorderRadius.circular(999),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsets.symmetric(vertical: 7),
           child: Center(
             child: Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF374151),
+                color: isSelected ? Colors.white : const Color(0xFF6B7280),
               ),
             ),
           ),
@@ -117,34 +120,22 @@ class HistoryTransactionList extends StatelessWidget {
           itemBuilder: (context, sectionIndex) {
             if (sectionIndex == 0) {
               return Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                 child: Column(
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: HistoryTabChip(
-                            label: 'Semua',
-                            isSelected: selectedTab == HistoryTab.all,
-                            onTap: () => onTabSelected(HistoryTab.all),
+                        for (int index = 0; index < HistoryTab.values.length; index++) ...[
+                          Expanded(
+                            child: HistoryTabChip(
+                              label: tabLabel(HistoryTab.values[index]),
+                              isSelected: selectedTab == HistoryTab.values[index],
+                              onTap: () => onTabSelected(HistoryTab.values[index]),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: HistoryTabChip(
-                            label: 'Pemasukan',
-                            isSelected: selectedTab == HistoryTab.income,
-                            onTap: () => onTabSelected(HistoryTab.income),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: HistoryTabChip(
-                            label: 'Pengeluaran',
-                            isSelected: selectedTab == HistoryTab.expense,
-                            onTap: () => onTabSelected(HistoryTab.expense),
-                          ),
-                        ),
+                          if (index != HistoryTab.values.length - 1)
+                            const SizedBox(width: 8),
+                        ],
                       ],
                     ),
                     if (!hasTransactions)
@@ -178,13 +169,15 @@ class HistoryTransactionList extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  color: const Color(0xFFF5F5F5),
                   child: Text(
                     section.title,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: const Color(0xFF111827),
                     ),
                   ),
@@ -217,8 +210,9 @@ class HistoryTransactionTile extends StatelessWidget {
     final icon = resolveHistoryIcon(transaction);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: const BoxDecoration(
+        color: Colors.white,
         border: Border(
           bottom: BorderSide(color: Color(0xFFE5E7EB)),
         ),
@@ -226,19 +220,19 @@ class HistoryTransactionTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFE5F0FF),
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFFE6EEFF),
+              shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 18,
+              size: 20,
               color: const Color(0xFF2D79FF),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,18 +242,18 @@ class HistoryTransactionTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF111827),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   formatHistoryTime(transaction.occurredAt),
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF6B7280),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF374151),
                   ),
                 ),
               ],
@@ -268,8 +262,8 @@ class HistoryTransactionTile extends StatelessWidget {
           Text(
             '$amountPrefix${formatCurrency(transaction.amount.abs())}',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
               color: amountColor,
             ),
           ),
