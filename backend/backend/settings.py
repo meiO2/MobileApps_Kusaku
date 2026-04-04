@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'users',
     'ads',
     'transactions.apps.TransactionsConfig',
+    'kusakustamp',
 ]
 
 MIDDLEWARE = [
