@@ -13,6 +13,11 @@ import '../../Screens/Login_Screen-frontend/login_screen.dart';
 import '../../config/api_config.dart';
 
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_profile_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/pusat_bantuan_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_security_code_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -150,9 +155,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {
-                        // TODO: edit profile
-                      },
+                          onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const UbahProfilePage()),
+                        ),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -199,7 +204,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _MenuTile(
               icon: Icons.help_outline,
               label: 'Pusat Bantuan',
-              onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PusatBantuanPage()),
+                ),
               isLast: true,
             ),
 
@@ -210,7 +217,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _MenuTile(
               icon: Icons.lock_outline,
               label: 'Ubah Security Code',
-              onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UbahSecurityCodePage()),
+              ),
             ),
             const _FingerprintTile(),
 

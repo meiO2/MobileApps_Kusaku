@@ -8,7 +8,6 @@ class PanduanKusakuPage extends StatefulWidget {
 }
 
 class _PanduanKusakuPageState extends State<PanduanKusakuPage> {
-  // Track which section is currently expanded (null = none)
   String? _expandedSection;
 
   final List<_GuideSection> _sections = [
