@@ -1,51 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_kusaku/Services/transaction_pin_store.dart';
 
+import 'payment_confirmation_models.dart';
 import '../Widgets/kusaku_auth_widgets.dart';
 import '../Widgets/payment_confirmation_widgets.dart';
 
 class PaymentConfirmationPage extends StatefulWidget {
-  const PaymentConfirmationPage({super.key});
+  PaymentConfirmationPage({
+    super.key,
+    PaymentConfirmationData? data,
+    this.onSubmitPayment,
+  })  : data = data ?? _defaultPaymentData,
+        assert((data ?? _defaultPaymentData).categories.length > 0, 'Payment categories must not be empty');
+
+  final PaymentConfirmationData data;
+  final Future<PaymentSubmissionResult> Function(
+    PaymentSubmissionPayload payload,
+  )? onSubmitPayment;
 
   @override
   State<PaymentConfirmationPage> createState() => _PaymentConfirmationPageState();
 }
 
 class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
-  static const int _paymentAmount = 50000;
-  static const List<PaymentDetailItem> _paymentDetails = [
-    PaymentDetailItem(
-      label: 'Harga',
-      value: 'Rp 50.000',
-      valueColor: PaymentConfirmationColors.priceRed,
-    ),
-    PaymentDetailItem(
-      label: 'Biaya Transaksi',
-      value: 'Gratis',
-      valueColor: PaymentConfirmationColors.priceFree,
-    ),
-    PaymentDetailItem(
-      label: 'Saldo Tersisa',
-      value: 'Rp 14.950.000',
-      valueColor: PaymentConfirmationColors.priceBlue,
-    ),
-  ];
-
   bool _isCategoryOpen = false;
   bool _showSavingConfirmation = false;
-  bool _isPaymentSuccessful = false;
+  PaymentFlowStatus _paymentStatus = PaymentFlowStatus.idle;
   int? _previousSelectedIndex;
-
-  final List<PaymentCategoryOption> _categories = const [
-    PaymentCategoryOption('Makan & Minum', Icons.restaurant, 5950000),
-    PaymentCategoryOption('Transportasi', Icons.pedal_bike, 6000000),
-    PaymentCategoryOption('Investasi', Icons.account_balance, 6000000),
-    PaymentCategoryOption('Tabungan', Icons.savings, 6000000, isSaving: true),
-    PaymentCategoryOption('Kebutuhan Rumah', Icons.home_filled, 6000000),
-    PaymentCategoryOption('Belanja', Icons.shopping_bag, 6000000),
-    PaymentCategoryOption('Lainnya', Icons.more_horiz, 6000000),
-  ];
+  String? _errorMessage;
 
   int _selectedIndex = 0;
+
+  bool get _isPaymentSuccessful => _paymentStatus == PaymentFlowStatus.success;
+  bool get _isSubmitting => _paymentStatus == PaymentFlowStatus.submitting;
+  List<PaymentCategoryData> get _categories => widget.data.categories;
+  List<PaymentDetailLine> get _paymentDetails => buildPaymentDetailLines(
+    amount: widget.data.amount,
+    transactionFee: widget.data.transactionFee,
+    remainingBalance: widget.data.remainingBalance,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -65,26 +58,42 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 10),
-                    const Center(
+                    Center(
                       child: PaymentMethodTag(
-                        label: 'Pembayaran Qris',
-                        icon: Icons.qr_code_2_rounded,
+                        label: widget.data.methodLabel,
+                        icon: paymentMethodIcon(widget.data.methodType),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const PaymentMerchantCard(),
+                    PaymentMerchantCard(merchant: widget.data.merchant),
                     if (_isPaymentSuccessful) ...[
                       const SizedBox(height: 18),
                       Expanded(
                         child: _PaymentSuccessSection(
-                          amountLabel: formatPaymentCurrency(_paymentAmount),
+                          title: widget.data.successTitle,
+                          amountLabel: formatPaymentCurrency(widget.data.amount),
+                          merchantName: widget.data.merchant.name,
+                          methodLabel:
+                              widget.data.successMethodLabel ?? widget.data.methodLabel,
                           onBack: () => Navigator.of(context).maybePop(),
                         ),
                       ),
                     ] else ...[
                       const SizedBox(height: 10),
-                      const PaymentDetailsSection(items: _paymentDetails),
+                      PaymentDetailsSection(items: _paymentDetails),
                       const SizedBox(height: 10),
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: PaymentConfirmationColors.priceRed,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       Expanded(
                         child: PaymentCategorySection(
                           selectedCategory: selected,
@@ -117,7 +126,9 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                   onConfirm: () {
                     _handlePaymentConfirmation();
                   },
-                  confirmText: 'Bayar',
+                  confirmText: _isSubmitting ? 'Memproses...' : 'Bayar',
+                  isCancelEnabled: !_isSubmitting,
+                  isConfirmEnabled: !_isSubmitting,
                 ),
               ),
             ),
@@ -125,6 +136,10 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   Future<void> _handlePaymentConfirmation() async {
+    if (_isSubmitting) {
+      return;
+    }
+
     final enteredPin = await showDialog<String>(
       context: context,
       builder: (dialogContext) => const KusakuPinInputDialog(
@@ -136,15 +151,75 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
       return;
     }
 
+    final localPin = TransactionPinStore.pin;
+    if (localPin != null && localPin.isNotEmpty && enteredPin != localPin) {
+      setState(() {
+        _paymentStatus = PaymentFlowStatus.failure;
+        _errorMessage = 'PIN yang dimasukkan tidak sesuai.';
+      });
+      return;
+    }
+
     setState(() {
-      _isPaymentSuccessful = true;
+      _paymentStatus = PaymentFlowStatus.submitting;
+      _errorMessage = null;
+    });
+
+    final result = await _submitPayment(enteredPin);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
       _isCategoryOpen = false;
       _showSavingConfirmation = false;
       _previousSelectedIndex = null;
+      _paymentStatus =
+          result.isSuccess ? PaymentFlowStatus.success : PaymentFlowStatus.failure;
+      _errorMessage = result.isSuccess ? null : result.errorMessage;
     });
   }
 
+  Future<PaymentSubmissionResult> _submitPayment(String enteredPin) async {
+    final selectedCategory = _categories[_selectedIndex];
+    final payload = PaymentSubmissionPayload(
+      transactionId: widget.data.transactionId,
+      categoryId: selectedCategory.id,
+      pin: enteredPin,
+      amount: widget.data.amount,
+      methodType: widget.data.methodType,
+      usedSavingBalance: selectedCategory.isSaving,
+    );
+
+    if (widget.onSubmitPayment != null) {
+      try {
+        final result = await widget.onSubmitPayment!(payload);
+        if (result.isSuccess || (result.errorMessage?.isNotEmpty ?? false)) {
+          return result;
+        }
+
+        return const PaymentSubmissionResult(
+          isSuccess: false,
+          errorMessage: 'Transaksi gagal diproses.',
+        );
+      } catch (_) {
+        return const PaymentSubmissionResult(
+          isSuccess: false,
+          errorMessage: 'Terjadi kendala saat memproses pembayaran.',
+        );
+      }
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    return const PaymentSubmissionResult(isSuccess: true);
+  }
+
   void _toggleCategory() {
+    if (_isSubmitting) {
+      return;
+    }
+
     setState(() {
       _showSavingConfirmation = false;
       _isCategoryOpen = !_isCategoryOpen;
@@ -152,9 +227,14 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   void _selectCategory(int index) {
+    if (_isSubmitting) {
+      return;
+    }
+
     final nextCategory = _categories[index];
 
     setState(() {
+      _errorMessage = null;
       if (nextCategory.isSaving) {
         _previousSelectedIndex = _selectedIndex;
         _selectedIndex = index;
@@ -171,6 +251,10 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   void _cancelSavingCategory() {
+    if (_isSubmitting) {
+      return;
+    }
+
     setState(() {
       if (_previousSelectedIndex != null) {
         _selectedIndex = _previousSelectedIndex!;
@@ -181,6 +265,10 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   void _confirmSavingCategory() {
+    if (_isSubmitting) {
+      return;
+    }
+
     setState(() {
       _previousSelectedIndex = null;
       _showSavingConfirmation = false;
@@ -190,11 +278,17 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
 
 class _PaymentSuccessSection extends StatelessWidget {
   const _PaymentSuccessSection({
+    required this.title,
     required this.amountLabel,
+    required this.merchantName,
+    required this.methodLabel,
     required this.onBack,
   });
 
+  final String title;
   final String amountLabel;
+  final String merchantName;
+  final String methodLabel;
   final VoidCallback onBack;
 
   @override
@@ -232,10 +326,10 @@ class _PaymentSuccessSection extends StatelessWidget {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Payment Successful!',
+                Text(
+                  title,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF72D44D),
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -252,16 +346,16 @@ class _PaymentSuccessSection extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const _PaymentSuccessInfoRow(
+                _PaymentSuccessInfoRow(
                   label: 'Produk',
-                  value: 'Starbucek',
+                  value: merchantName,
                 ),
                 const SizedBox(height: 18),
                 const Divider(color: Colors.white60, thickness: 1),
                 const SizedBox(height: 18),
-                const _PaymentSuccessInfoRow(
+                _PaymentSuccessInfoRow(
                   label: 'Metode Pembayaran',
-                  value: 'Qris Kusaku',
+                  value: methodLabel,
                 ),
               ],
             ),
@@ -292,6 +386,67 @@ class _PaymentSuccessSection extends StatelessWidget {
     );
   }
 }
+
+final PaymentConfirmationData _defaultPaymentData = PaymentConfirmationData(
+  transactionId: 'sample-transaction',
+  methodType: PaymentMethodType.qris,
+  methodLabel: 'Pembayaran Qris',
+  amount: 50000,
+  transactionFee: 0,
+  remainingBalance: 14950000,
+  merchant: PaymentMerchantInfo(
+    name: 'Starbucek',
+    accountName: 'a.n. PT Starbucek Indonesia',
+    transactedAt: DateTime(2026, 3, 1, 12, 0),
+    logoText: 'S',
+  ),
+  categories: [
+    PaymentCategoryData(
+      id: 'food-drink',
+      name: 'Makan & Minum',
+      icon: Icons.restaurant,
+      remainingAmount: 5950000,
+    ),
+    PaymentCategoryData(
+      id: 'transport',
+      name: 'Transportasi',
+      icon: Icons.pedal_bike,
+      remainingAmount: 6000000,
+    ),
+    PaymentCategoryData(
+      id: 'investment',
+      name: 'Investasi',
+      icon: Icons.account_balance,
+      remainingAmount: 6000000,
+    ),
+    PaymentCategoryData(
+      id: 'saving',
+      name: 'Tabungan',
+      icon: Icons.savings,
+      remainingAmount: 6000000,
+      isSaving: true,
+    ),
+    PaymentCategoryData(
+      id: 'home-needs',
+      name: 'Kebutuhan Rumah',
+      icon: Icons.home_filled,
+      remainingAmount: 6000000,
+    ),
+    PaymentCategoryData(
+      id: 'shopping',
+      name: 'Belanja',
+      icon: Icons.shopping_bag,
+      remainingAmount: 6000000,
+    ),
+    PaymentCategoryData(
+      id: 'other',
+      name: 'Lainnya',
+      icon: Icons.more_horiz,
+      remainingAmount: 6000000,
+    ),
+  ],
+  successMethodLabel: 'Qris Kusaku',
+);
 
 class _PaymentSuccessInfoRow extends StatelessWidget {
   const _PaymentSuccessInfoRow({

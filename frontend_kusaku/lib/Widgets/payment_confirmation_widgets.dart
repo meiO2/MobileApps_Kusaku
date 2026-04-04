@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_models.dart';
 
 class PaymentConfirmationColors {
   static const Color headerDark = Color(0xFF1E3A8A);
@@ -32,6 +33,72 @@ String formatPaymentCurrency(int amount) {
   }
 
   return 'Rp ${buffer.toString()}';
+}
+
+String formatPaymentDateTime(DateTime value) {
+  const months = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  final day = value.day.toString();
+  final month = months[value.month - 1];
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '$day $month ${value.year} | $hour.$minute WIB';
+}
+
+IconData paymentMethodIcon(PaymentMethodType type) {
+  switch (type) {
+    case PaymentMethodType.qris:
+      return Icons.qr_code_2_rounded;
+    case PaymentMethodType.transfer:
+      return Icons.account_balance_outlined;
+    case PaymentMethodType.ewallet:
+      return Icons.account_balance_wallet_outlined;
+    case PaymentMethodType.virtualAccount:
+      return Icons.credit_card_outlined;
+    case PaymentMethodType.other:
+      return Icons.payments_outlined;
+  }
+}
+
+List<PaymentDetailLine> buildPaymentDetailLines({
+  required int amount,
+  required int transactionFee,
+  required int remainingBalance,
+}) {
+  return [
+    PaymentDetailLine(
+      label: 'Harga',
+      displayValue: formatPaymentCurrency(amount),
+      valueColor: PaymentConfirmationColors.priceRed,
+    ),
+    PaymentDetailLine(
+      label: 'Biaya Transaksi',
+      displayValue: transactionFee == 0
+          ? 'Gratis'
+          : formatPaymentCurrency(transactionFee),
+      valueColor: transactionFee == 0
+          ? PaymentConfirmationColors.priceFree
+          : PaymentConfirmationColors.priceRed,
+    ),
+    PaymentDetailLine(
+      label: 'Saldo Tersisa',
+      displayValue: formatPaymentCurrency(remainingBalance),
+      valueColor: PaymentConfirmationColors.priceBlue,
+    ),
+  ];
 }
 
 class PaymentConfirmationHeader extends StatelessWidget {
@@ -158,7 +225,7 @@ class PaymentCardShell extends StatelessWidget {
 class PaymentDetailsSection extends StatelessWidget {
   const PaymentDetailsSection({required this.items, super.key});
 
-  final List<PaymentDetailItem> items;
+  final List<PaymentDetailLine> items;
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +278,7 @@ class PaymentDetailsSection extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          item.value,
+                          item.displayValue,
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
@@ -229,18 +296,6 @@ class PaymentDetailsSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class PaymentDetailItem {
-  const PaymentDetailItem({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
 }
 
 class PaymentCategoryTile extends StatelessWidget {
@@ -325,29 +380,23 @@ class PaymentCategoryTile extends StatelessWidget {
   }
 }
 
-class PaymentCategoryOption {
-  const PaymentCategoryOption(
-    this.name,
-    this.icon,
-    this.remainingAmount, {
-    this.subtitle = 'Sisa bulan ini',
-    this.isSaving = false,
+class PaymentMerchantCard extends StatelessWidget {
+  const PaymentMerchantCard({
+    required this.merchant,
+    super.key,
   });
 
-  final String name;
-  final IconData icon;
-  final int remainingAmount;
-  final String subtitle;
-  final bool isSaving;
-
-  String get amountLabel => formatPaymentCurrency(remainingAmount);
-}
-
-class PaymentMerchantCard extends StatelessWidget {
-  const PaymentMerchantCard({super.key});
+  final PaymentMerchantInfo merchant;
 
   @override
   Widget build(BuildContext context) {
+    final logoText = (merchant.logoText?.isNotEmpty == true
+            ? merchant.logoText!
+            : merchant.name.isNotEmpty
+                ? merchant.name[0]
+                : 'M')
+        .toUpperCase();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       child: PaymentCardShell(
@@ -362,10 +411,10 @@ class PaymentMerchantCard extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFC2C2C2)),
                 color: const Color(0xFFF2F6F8),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'S',
-                  style: TextStyle(
+                  logoText,
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF2A7A57),
@@ -375,36 +424,40 @@ class PaymentMerchantCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Starbucek',
-                    style: TextStyle(
+                    merchant.name,
+                    style: const TextStyle(
                       fontSize: 39 / 2,
                       fontWeight: FontWeight.w600,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'a.n. PT Starbucek Indonesia',
-                    style: TextStyle(
+                    merchant.accountName,
+                    style: const TextStyle(
                       fontSize: 32 / 2,
                       fontWeight: FontWeight.w400,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined, size: 14, color: Colors.black87),
-                      SizedBox(width: 6),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 14,
+                        color: Colors.black87,
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        '1 Maret 2026 | 12.00 WIB',
-                        style: TextStyle(
+                        formatPaymentDateTime(merchant.transactedAt),
+                        style: const TextStyle(
                           fontSize: 31 / 2,
                           fontWeight: FontWeight.w400,
                           color: Colors.black87,
@@ -436,8 +489,8 @@ class PaymentCategorySection extends StatelessWidget {
     super.key,
   });
 
-  final PaymentCategoryOption selectedCategory;
-  final List<PaymentCategoryOption> categories;
+  final PaymentCategoryData selectedCategory;
+  final List<PaymentCategoryData> categories;
   final int selectedIndex;
   final bool isCategoryOpen;
   final bool showSavingConfirmation;
@@ -484,7 +537,7 @@ class PaymentCategorySection extends StatelessWidget {
           PaymentCategoryTile(
             title: selectedCategory.name,
             subtitle: selectedCategory.subtitle,
-            amount: selectedCategory.amountLabel,
+            amount: formatPaymentCurrency(selectedCategory.remainingAmount),
             icon: selectedCategory.icon,
             highlightColor: selectedCategory.isSaving
                 ? PaymentConfirmationColors.savingCategoryBg
@@ -550,7 +603,7 @@ class PaymentCategorySection extends StatelessWidget {
                       return PaymentCategoryTile(
                         title: item.name,
                         subtitle: item.subtitle,
-                        amount: item.amountLabel,
+                        amount: formatPaymentCurrency(item.remainingAmount),
                         icon: item.icon,
                         highlightColor: fillColor,
                         onTap: () => onSelectCategory(index),
@@ -663,6 +716,7 @@ class PaymentActionButtons extends StatelessWidget {
     required this.onConfirm,
     required this.confirmText,
     this.isCancelEnabled = true,
+    this.isConfirmEnabled = true,
     super.key,
   });
 
@@ -670,6 +724,7 @@ class PaymentActionButtons extends StatelessWidget {
   final VoidCallback onConfirm;
   final String confirmText;
   final bool isCancelEnabled;
+  final bool isConfirmEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -705,7 +760,7 @@ class PaymentActionButtons extends StatelessWidget {
             child: SizedBox(
               height: 46,
               child: ElevatedButton(
-                onPressed: onConfirm,
+                onPressed: isConfirmEnabled ? onConfirm : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PaymentConfirmationColors.buttonPay,
                   elevation: 0,
