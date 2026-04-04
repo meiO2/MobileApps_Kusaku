@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
-
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'change_password_screen.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+import '../../config/api_config.dart';
 
 class ForgotPasswordOtpScreen extends StatefulWidget {
   const ForgotPasswordOtpScreen({
-    required this.phoneNumber,
+    required this.email,
     super.key,
   });
 
-  final String phoneNumber;
+  final String email;
 
   @override
   State<ForgotPasswordOtpScreen> createState() => _ForgotPasswordOtpScreenState();
@@ -38,7 +41,7 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
     return '$visibleStart${'*' * hiddenLength}$visibleEnd';
   }
 
-  void _onOtpChanged(int index, String value) {
+  void _onOtpChanged(int index, String value) async {
     if (value.isEmpty) return;
 
     if (index < 5) {
@@ -46,10 +49,38 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
     }
 
     final otp = _otpControllers.map((c) => c.text).join();
+
     if (otp.length == 6) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-      );
+      try {
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}users/verify-otp/'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': widget.email,
+            'otp': otp,
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ChangePasswordScreen(
+                email: widget.email,
+                otp: otp,
+              ),
+            ),
+          );
+        } else {
+          final data = jsonDecode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data.toString())),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connection error')),
+        );
+      }
     }
   }
 
@@ -97,7 +128,7 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Verification code already sent to ${_maskPhoneNumber(widget.phoneNumber)}. Please enter the code within 3 minutes.',
+                            'Verification code already sent to ${_maskPhoneNumber(widget.email)}. Please enter the code within 3 minutes.',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                             textAlign: TextAlign.center,
                           ),

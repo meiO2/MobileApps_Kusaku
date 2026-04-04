@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'otp_verification_screen.dart';
+
+import '../../config/api_config.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -163,7 +164,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                                 try {
                                   final response = await http.post(
-                                    Uri.parse("http://10.93.20.130:8000/api/users/send-otp/"),
+                                    Uri.parse('${ApiConfig.baseUrl}users/send-otp/'),
                                     headers: {"Content-Type": "application/json"},
                                     body: jsonEncode({"email": email}),
                                   );

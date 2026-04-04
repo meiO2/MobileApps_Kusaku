@@ -7,6 +7,8 @@ import '../../Services/auth_services/user_credentials_store.dart';
 import '../../Widgets/kusaku_auth_widgets.dart';
 import '../Login_Screen-frontend/login_screen.dart';
 
+import '../../config/api_config.dart';
+
 class ConfirmTransactionPinScreen extends StatefulWidget {
   const ConfirmTransactionPinScreen({
     required this.initialPin,
@@ -51,7 +53,7 @@ class _ConfirmTransactionPinScreenState
 
   Future<void> _registerUser() async {
     final response = await http.post(
-      Uri.parse("http://10.93.20.130:8000/api/users/register/"),
+      Uri.parse('${ApiConfig.baseUrl}users/register/'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "email": widget.email,
@@ -86,10 +88,8 @@ class _ConfirmTransactionPinScreenState
     setState(() => _isLoading = true);
 
     try {
-      // 🔥 CALL BACKEND REGISTER
       await _registerUser();
 
-      // ✅ SAVE LOCALLY
       TransactionPinStore.setPin(_confirmPin);
       UserCredentialsStore.setCredentials(
         username: widget.username,

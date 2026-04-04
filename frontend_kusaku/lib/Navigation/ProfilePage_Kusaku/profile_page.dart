@@ -5,9 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_points_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kusaku_stamp_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/keuntungan_kusaku_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/kebijakan_privasi_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/syarat_ketentuan_page.dart';
 import '../../Screens/Login_Screen-frontend/login_screen.dart';
+
+import '../../config/api_config.dart';
+
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_profile_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/pusat_bantuan_page.dart';
+import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_security_code_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,44 +26,89 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String _username = "Loading...";
-  String _phone = "...";
-  bool _isLoading = true;
+  String _username = "Guest User";
+  String _phone = "-";
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchUserData();
-  }
-
-  Future<void> _fetchUserData() async {
+  Future<void> _fetchUserProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
 
-      if (userId == null) return;
+      if (userId == null) {
+        print("User ID not found");
+        return;
+      }
 
-      // Call your backend Profile Search API
       final response = await http.get(
-        Uri.parse('http://10.93.20.130:8000/api/users/profile/$userId/'),
+        Uri.parse('${ApiConfig.baseUrl}users/profile/$userId/'),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = json.decode(response.body);
+
         setState(() {
-          _username = data['username'] ?? "User";
-          _phone = data['phone_number'] ?? "No Phone"; // Assuming your Account model has this field
-          _isLoading = false;
+          _username = data['username'] ?? "No Name";
+          _phone = data['phone_number'] ?? "-";
         });
+      } else {
+        print("Failed: ${response.body}");
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      print("Error: $e");
     }
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchUserProfile();
+  }
+
+  void _showSignOutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: const Text('Apakah kamu yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Batal',
+              style: TextStyle(color: Color.fromARGB(255, 100, 104, 112)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear(); // hapus semua data login
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1D4ED8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Get first letter for Avatar
     String avatarLetter = _username.isNotEmpty ? _username[0].toUpperCase() : "?";
 
     return Scaffold(
@@ -98,7 +152,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 child: Row(
                   children: [
-                    // Avatar — Shows first letter of username
                     Container(
                       width: 55,
                       height: 55,
@@ -118,7 +171,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Name & phone — Real data from backend
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,11 +194,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                       ),
                     ),
-                    // Ubah button
                     TextButton(
-                      onPressed: () {
-                        // TODO: navigate to edit profile
-                      },
+                          onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const UbahProfilePage()),
+                        ).then((_) => _fetchUserProfile()),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -193,7 +244,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _MenuTile(
               icon: Icons.help_outline,
               label: 'Pusat Bantuan',
-              onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PusatBantuanPage()),
+                ),
               isLast: true,
             ),
 
@@ -204,7 +257,9 @@ class _ProfilePageState extends State<ProfilePage> {
             _MenuTile(
               icon: Icons.lock_outline,
               label: 'Ubah Security Code',
-              onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UbahSecurityCodePage()),
+              ),
             ),
             const _FingerprintTile(),
 
@@ -215,12 +270,16 @@ class _ProfilePageState extends State<ProfilePage> {
             _MenuTile(
               icon: Icons.emoji_events_outlined,
               label: 'Keuntungan Pakai Kusaku',
-              onTap: () {},
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const KeuntunganKusakuPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.menu_book_outlined,
               label: 'Panduan Kusaku',
-              onTap: () {},
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PanduanKusakuPage()),
+              ),
             ),
             _MenuTile(
               icon: Icons.description_outlined,
@@ -247,7 +306,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () => _showSignOutDialog(context),
+                  onPressed: _showSignOutDialog,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1D4ED8),
                     foregroundColor: Colors.white,
@@ -270,58 +329,6 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 32),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showSignOutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        content: const Text('Apakah kamu yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Color(0xFF6B7280)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear(); // Clear the session
-              
-              if (!mounted) return;
-              Navigator.of(ctx).pop(); // Close the dialog
-
-              // This clears the entire stack and uses your pageBuilder
-              Navigator.of(context).pushAndRemoveUntil(
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    // You can add custom fade/slide logic here if you want
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                  transitionDuration: const Duration(milliseconds: 300),
-                ),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1D4ED8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Ya, Keluar', style: TextStyle(color: Colors.white),), 
-          ),
-        ],
       ),
     );
   }

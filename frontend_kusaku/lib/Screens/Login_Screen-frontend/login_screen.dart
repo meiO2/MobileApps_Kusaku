@@ -11,6 +11,8 @@ import '../Singup_Screen-frontend/sign_up_screen.dart';
 import '../ForgotPassword_Screen-frontend/forgot_password_screen.dart';
 import 'package:frontend_kusaku/navbar.dart';
 
+import '../../config/api_config.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -68,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // Hits your Django Login View
       final response = await http.post(
-        Uri.parse('http://10.93.20.130:8000/api/users/login/'),
+        Uri.parse('${ApiConfig.baseUrl}users/login/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'username': username,
@@ -93,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _showSnackBar(errorData['error'] ?? 'Username or password incorrect');
       }
     } catch (e) {
-      _showSnackBar('Connection failed. Is the server running on 10.93.20.130?');
+      _showSnackBar('Connection failed. Is the server running on 10.227.3.130?');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
