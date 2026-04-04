@@ -71,45 +71,64 @@ class _ScanPageState extends State<ScanPage> {
             onBack: () => Navigator.of(context).maybePop(),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  ScanInstructionSection(
-                    title: _headline,
-                    subtitle: _subheadline,
+            child: Column(
+              children: [
+                ScanInstructionSection(
+                  title: _headline,
+                  subtitle: _subheadline,
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 340),
+                            child: ScanPreviewFrame(
+                              contentType: _contentType,
+                              isFlashOn: _isFlashOn,
+                              showGalleryOverlay: _isGalleryOpen,
+                              previewLabel: _previewLabel,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (!_isGalleryOpen) const ScanGuidanceCard(),
+                      if (_statusMessage != null && !_isGalleryOpen)
+                        ScanStatusChip(label: _statusMessage!),
+                    ],
                   ),
-                  ScanPreviewFrame(
-                    contentType: _contentType,
-                    isFlashOn: _isFlashOn,
-                    showGalleryOverlay: _isGalleryOpen,
-                    previewLabel: _previewLabel,
+                ),
+                if (!_isGalleryOpen)
+                  ScanActionBar(
+                    items: [
+                      ScanActionItem(
+                        label: _isFlashOn ? 'Flash Aktif' : 'Nyalakan\nFlash',
+                        icon: Icons.flash_on_rounded,
+                        isActive: _isFlashOn,
+                        onTap: _isBusy ? () {} : _toggleFlash,
+                      ),
+                      ScanActionItem(
+                        label: _contentType == ScanContentType.receipt
+                            ? 'Qris'
+                            : 'Unggah\nNota',
+                        icon: _contentType == ScanContentType.receipt
+                            ? Icons.qr_code_scanner_rounded
+                            : Icons.receipt_long_rounded,
+                        onTap: _isBusy
+                            ? () {}
+                            : _contentType == ScanContentType.receipt
+                                ? _openQrisMode
+                                : _openReceiptMode,
+                      ),
+                      ScanActionItem(
+                        label: 'Upload Dari\nGaleri',
+                        icon: Icons.image_outlined,
+                        onTap: _isBusy ? () {} : _openGallery,
+                      ),
+                    ],
                   ),
-                  if (!_isGalleryOpen) const ScanGuidanceCard(),
-                  if (_statusMessage != null && !_isGalleryOpen)
-                    ScanStatusChip(label: _statusMessage!),
-                  if (!_isGalleryOpen)
-                    ScanActionBar(
-                      items: [
-                        ScanActionItem(
-                          label: _isFlashOn ? 'Flash Aktif' : 'Nyalakan\nFlash',
-                          icon: Icons.flash_on_rounded,
-                          isActive: _isFlashOn,
-                          onTap: _isBusy ? () {} : _toggleFlash,
-                        ),
-                        ScanActionItem(
-                          label: 'Unggah\nNota',
-                          icon: Icons.receipt_long_rounded,
-                          onTap: _isBusy ? () {} : _openReceiptMode,
-                        ),
-                        ScanActionItem(
-                          label: 'Upload Dari\nGaleri',
-                          icon: Icons.image_outlined,
-                          onTap: _isBusy ? () {} : _openGallery,
-                        ),
-                      ],
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -151,6 +170,25 @@ class _ScanPageState extends State<ScanPage> {
       _isGalleryOpen = false;
       _isBusy = true;
       _statusMessage = 'Mode nota aktif. Siap untuk OCR atau upload backend.';
+    });
+
+    try {
+      await widget.onContentTypeChanged?.call(_contentType);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openQrisMode() async {
+    setState(() {
+      _contentType = ScanContentType.qris;
+      _isGalleryOpen = false;
+      _isBusy = true;
+      _statusMessage = 'Mode QRIS aktif. Siap untuk scan kamera atau proses QR.';
     });
 
     try {

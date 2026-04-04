@@ -14,13 +14,11 @@ enum ScanContentType { qris, receipt }
 class ScanGalleryItem {
   const ScanGalleryItem({
     required this.id,
-    this.label,
     this.previewColor = const Color(0xFFD9D9D9),
     this.isReceipt = false,
   });
 
   final String id;
-  final String? label;
   final Color previewColor;
   final bool isReceipt;
 }
@@ -125,9 +123,9 @@ class ScanPreviewFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(30, 34, 30, 0),
+      margin: const EdgeInsets.fromLTRB(30, 24, 30, 0),
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 320, minHeight: 280),
+      constraints: const BoxConstraints(maxWidth: 320),
       child: AspectRatio(
         aspectRatio: 1,
         child: Stack(
@@ -180,7 +178,7 @@ class ScanGuidanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(40, 42, 40, 0),
+      margin: const EdgeInsets.fromLTRB(40, 28, 40, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -265,7 +263,7 @@ class ScanActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 28, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,8 +552,9 @@ class _QrPreview extends StatelessWidget {
     return SizedBox(
       width: 165,
       height: 165,
-      child: CustomPaint(
-        painter: _QrPainter(),
+      child: Image.asset(
+        'assets/images/qris.png',
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -566,55 +565,12 @@ class _ReceiptPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 190,
       height: 220,
-      decoration: BoxDecoration(
-        color: const Color(0xFF7D4923),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Container(
-        color: const Color(0xFFEAE1D8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          children: [
-            const Text(
-              'Berghotel\nGrosse Scheidegg',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1, color: Colors.black38),
-            const SizedBox(height: 8),
-            ...List.generate(
-              7,
-              (index) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 5,
-                        color: Colors.black26,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 28,
-                      height: 5,
-                      color: Colors.black26,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+      child: Image.asset(
+        'assets/images/nota.png',
+        fit: BoxFit.cover,
       ),
     );
   }
@@ -662,53 +618,4 @@ class _MiniReceiptPreview extends StatelessWidget {
       ),
     );
   }
-}
-
-class _QrPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black;
-    final module = size.width / 21;
-
-    void rect(int x, int y, int w, int h) {
-      canvas.drawRect(
-        Rect.fromLTWH(x * module, y * module, w * module, h * module),
-        paint,
-      );
-    }
-
-    void finder(int x, int y) {
-      rect(x, y, 7, 7);
-      canvas.drawRect(
-        Rect.fromLTWH((x + 1) * module, (y + 1) * module, 5 * module, 5 * module),
-        Paint()..color = Colors.white,
-      );
-      rect(x + 2, y + 2, 3, 3);
-    }
-
-    finder(0, 0);
-    finder(14, 0);
-    finder(0, 14);
-
-    final blocks = <List<int>>[
-      [8, 1], [9, 1], [10, 1], [8, 2], [10, 2], [8, 3], [9, 3], [10, 3],
-      [8, 5], [10, 5], [8, 6], [9, 6], [10, 6], [12, 5], [13, 5], [12, 6],
-      [11, 8], [12, 8], [14, 8], [15, 8], [8, 9], [9, 9], [11, 9], [13, 9],
-      [15, 9], [17, 9], [8, 10], [10, 10], [12, 10], [13, 10], [16, 10],
-      [8, 11], [9, 11], [14, 11], [15, 11], [17, 11], [18, 11], [10, 12],
-      [11, 12], [12, 12], [15, 12], [17, 12], [18, 12], [8, 13], [10, 13],
-      [12, 13], [13, 13], [16, 13], [18, 13], [7, 14], [8, 14], [10, 14],
-      [12, 14], [14, 14], [15, 14], [17, 14], [8, 15], [11, 15], [13, 15],
-      [16, 15], [18, 15], [7, 16], [8, 16], [10, 16], [12, 16], [14, 16],
-      [15, 16], [18, 16], [9, 17], [11, 17], [12, 17], [14, 17], [17, 17],
-      [8, 18], [10, 18], [13, 18], [15, 18], [16, 18], [18, 18],
-    ];
-
-    for (final block in blocks) {
-      rect(block[0], block[1], 1, 1);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
