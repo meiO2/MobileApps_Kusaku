@@ -188,7 +188,7 @@ class _UbahProfilePageState extends State<UbahProfilePage> {
                     onPressed: () {
                       Navigator.of(ctx).pop();
                       Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const UbahNomorPage()));
+                          builder: (_) => const UbahNomorPage())).then((_) => _loadProfile());
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1D4ED8),
@@ -396,7 +396,7 @@ class _UbahProfilePageState extends State<UbahProfilePage> {
                                           MaterialPageRoute(
                                               builder: (_) =>
                                                   const UbahEmailPage()),
-                                        ),
+                                        ).then((_) => _loadProfile()),
                                         style: TextButton.styleFrom(
                                           padding: EdgeInsets.zero,
                                           minimumSize: Size.zero,

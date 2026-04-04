@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import '../../config/api_config.dart';
 
 class UbahEmailPage extends StatefulWidget {
   const UbahEmailPage({super.key});
@@ -9,6 +13,7 @@ class UbahEmailPage extends StatefulWidget {
 
 class _UbahEmailPageState extends State<UbahEmailPage> {
   final TextEditingController _controller = TextEditingController();
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -16,10 +21,51 @@ class _UbahEmailPageState extends State<UbahEmailPage> {
     super.dispose();
   }
 
-  void _onSimpan() {
+  Future<void> _onSimpan() async {
     if (_controller.text.trim().isEmpty) return;
-    // TODO: call API PATCH /user/email with { email: _controller.text }
-    Navigator.of(context).pop(); // back to UbahProfilePage
+
+    setState(() => _isSaving = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        _showError('User tidak ditemukan. Silakan login ulang.');
+        return;
+      }
+
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}users/profile/update/$userId/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': _controller.text.trim()}),
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Email berhasil diubah!'),
+            backgroundColor: Color(0xFF1D4ED8),
+          ),
+        );
+        Navigator.of(context).pop();
+      } else {
+        final data = jsonDecode(response.body);
+        _showError(data['message'] ?? 'Gagal mengubah email.');
+      }
+    } catch (e) {
+      _showError('Koneksi gagal: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -47,19 +93,16 @@ class _UbahEmailPageState extends State<UbahEmailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Email Baru',
-                    style: TextStyle(
-                        fontSize: 12, color: Color(0xFF6B7280))),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _controller,
                   keyboardType: TextInputType.emailAddress,
                   autofocus: true,
-                  style: const TextStyle(
-                      fontSize: 15, color: Color(0xFF111827)),
+                  style: const TextStyle(fontSize: 15, color: Color(0xFF111827)),
                   decoration: InputDecoration(
                     hintText: 'Masukkan email baru',
-                    hintStyle:
-                        const TextStyle(color: Color(0xFF9CA3AF)),
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
                     filled: true,
                     fillColor: const Color(0xFFF3F4F6),
                     border: OutlineInputBorder(
@@ -81,8 +124,9 @@ class _UbahEmailPageState extends State<UbahEmailPage> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed:
-                    _controller.text.trim().isNotEmpty ? _onSimpan : null,
+                onPressed: _controller.text.trim().isNotEmpty && !_isSaving
+                    ? _onSimpan
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1D4ED8),
                   disabledBackgroundColor: const Color(0xFFBFDBFE),
@@ -91,9 +135,16 @@ class _UbahEmailPageState extends State<UbahEmailPage> {
                       borderRadius: BorderRadius.circular(30)),
                   elevation: 0,
                 ),
-                child: const Text('Simpan',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5),
+                      )
+                    : const Text('Simpan',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16)),
               ),
             ),
           ),

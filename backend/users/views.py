@@ -164,7 +164,7 @@ class UpdateProfileView(APIView):
 
         user.username = request.data.get('username', user.username)
         user.email = request.data.get('email', user.email)
-        user.phone = request.data.get('phone_number', user.phone_number)
+        user.phone_number = request.data.get('phone_number', user.phone_number)
 
         user.save()
 
@@ -172,5 +172,5 @@ class UpdateProfileView(APIView):
             "message": "Profile updated successfully",
             "username": user.username,
             "email": user.email,
-            "phone_number": user.phone,
+            "phone_number": user.phone_number,
         }, status=200)

@@ -197,7 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     TextButton(
                           onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const UbahProfilePage()),
-                        ),
+                        ).then((_) => _fetchUserProfile()),
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
