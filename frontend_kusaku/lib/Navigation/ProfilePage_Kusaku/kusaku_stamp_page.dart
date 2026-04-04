@@ -1,5 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import '../../config/api_config.dart';
 
+// ── Data model ─────────────────────────────────────────────────────────────
+class _StampCard {
+  final int id;
+  final String imageUrl;
+  final String title;
+  final int points;
+  final String deadline;
+  final String rewardLabel;
+  final bool isExpired;
+
+  _StampCard({
+    required this.id,
+    required this.imageUrl,
+    required this.title,
+    required this.points,
+    required this.deadline,
+    required this.rewardLabel,
+    required this.isExpired,
+  });
+
+  factory _StampCard.fromJson(Map<String, dynamic> json) {
+    final DateTime dt = DateTime.parse(json['deadline']).toLocal();
+    const List<String> bulan = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    final String deadlineStr = '${dt.day} ${bulan[dt.month]} ${dt.year}';
+
+    return _StampCard(
+      id: json['id'],
+      imageUrl: json['image'] ?? '',
+      title: json['title'] ?? '',
+      points: json['points_needed'] ?? 0,
+      deadline: deadlineStr,
+      rewardLabel: json['reward_label'] ?? '',
+      isExpired: json['is_expired'] ?? false,
+    );
+  }
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
 class KusakuStampPage extends StatefulWidget {
   const KusakuStampPage({super.key});
 
@@ -11,38 +56,19 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // TODO: replace with real stamp data from API
-  final List<_StampCard> _aktif = const [
-    _StampCard(
-      imagePath: 'assets/images/stamp/stamp_gacoan.png',
-      title: 'Kusaku Stamp Gacoan March 2026',
-      points: 1500,
-      deadline: '31 Maret 2026',
-      rewardLabel: '15K',
-    ),
-    _StampCard(
-      imagePath: 'assets/images/stamp/stamp_kfc.png',
-      title: 'Kusaku Stamp KFC March 2026',
-      points: 4000,
-      deadline: '31 Maret 2026',
-      rewardLabel: '40K',
-    ),
-  ];
+  bool _isLoading = true;
+  String? _errorMessage;
+  int _userPoints = 0;
+  int? _userId; // stored just like ProfilePage stores it
 
-  final List<_StampCard> _tidakAktif = const [
-    _StampCard(
-      imagePath: 'assets/images/stamp/stamp_expired1.png',
-      title: 'Kusaku Stamp Gacoan Feb 2026',
-      points: 1500,
-      deadline: '28 Februari 2026',
-      rewardLabel: '15K', // ubah ini sm API
-    ),
-  ]; // TODO: Ubah pake API konek
+  List<_StampCard> _aktif = [];
+  List<_StampCard> _tidakAktif = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadData();
   }
 
   @override
@@ -51,6 +77,148 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     super.dispose();
   }
 
+  // ── Load data — same pattern as ProfilePage._fetchUserProfile() ──────────
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Exactly like ProfilePage: just read user_id from prefs
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        setState(() {
+          _errorMessage = 'User not logged in';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      _userId = userId;
+
+      // Fetch stamps — pass userId as query param, no auth header needed
+      final stampsRes = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}stamp/view/?user_id=$userId'),
+      );
+
+      if (stampsRes.statusCode != 200) {
+        setState(() {
+          _errorMessage = 'Gagal memuat stamp (${stampsRes.statusCode})';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Fetch balance — same pattern
+      final balanceRes = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}balance/?user_id=$userId'),
+      );
+
+      final List<dynamic> data = jsonDecode(stampsRes.body);
+      final allStamps = data.map((e) => _StampCard.fromJson(e)).toList();
+
+      int userPoints = 0;
+      if (balanceRes.statusCode == 200) {
+        final balanceData = jsonDecode(balanceRes.body);
+        userPoints = (balanceData['kusaku_points'] ?? 0) as int;
+      }
+
+      setState(() {
+        _aktif = allStamps.where((s) => !s.isExpired).toList();
+        _tidakAktif = allStamps.where((s) => s.isExpired).toList();
+        _userPoints = userPoints;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Koneksi gagal: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ── Redeem ─────────────────────────────────────────────────────────────
+  Future<void> _redeem(_StampCard card) async {
+    if (_userPoints < card.points) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Poin tidak cukup. Kamu punya $_userPoints poin, butuh ${card.points}.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Tukar Stamp?',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Text(
+            'Kamu akan menukar ${card.points} Kusaku Points untuk "${card.title}".'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal',
+                style: TextStyle(color: Color(0xFF6B7280))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1D4ED8),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Ya, tukar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      // Pass user_id as query param — same pattern, no auth header
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}stamps/redeem/${card.id}/?user_id=$_userId'),
+      );
+
+      if (response.statusCode == 201) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Stamp berhasil ditukarkan! 🎉'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+        _loadData();
+      } else {
+        final data = jsonDecode(response.body);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['error'] ?? 'Gagal menukar stamp.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Koneksi gagal: $e'),
+            backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,21 +246,73 @@ class _KusakuStampPageState extends State<KusakuStampPage>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _StampList(cards: _aktif, isActive: true),
-          _StampList(cards: _tidakAktif, isActive: false),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1D4ED8)))
+          : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadData,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1D4ED8),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Coba Lagi'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _StampList(
+                            cards: _aktif,
+                            isActive: true,
+                            userPoints: _userPoints,
+                            onRedeem: _redeem,
+                          ),
+                          _StampList(
+                            cards: _tidakAktif,
+                            isActive: false,
+                            userPoints: _userPoints,
+                            onRedeem: _redeem,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
 }
 
+// ── List ───────────────────────────────────────────────────────────────────
 class _StampList extends StatelessWidget {
   final List<_StampCard> cards;
   final bool isActive;
-  const _StampList({required this.cards, required this.isActive});
+  final int userPoints;
+  final Future<void> Function(_StampCard) onRedeem;
+
+  const _StampList({
+    required this.cards,
+    required this.isActive,
+    required this.userPoints,
+    required this.onRedeem,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -115,21 +335,39 @@ class _StampList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: cards.length,
-      itemBuilder: (context, i) => _StampCardWidget(card: cards[i]),
+      itemBuilder: (_, i) => _StampCardWidget(
+        card: cards[i],
+        userPoints: userPoints,
+        onRedeem: onRedeem,
+        isActive: isActive,
+      ),
     );
   }
 }
 
+// ── Card widget ────────────────────────────────────────────────────────────
 class _StampCardWidget extends StatelessWidget {
   final _StampCard card;
-  const _StampCardWidget({required this.card});
+  final int userPoints;
+  final bool isActive;
+  final Future<void> Function(_StampCard) onRedeem;
+
+  const _StampCardWidget({
+    required this.card,
+    required this.userPoints,
+    required this.isActive,
+    required this.onRedeem,
+  });
 
   String _formatPoints(int p) => p
       .toString()
-      .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+      .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
 
   @override
   Widget build(BuildContext context) {
+    final bool canRedeem = isActive && userPoints >= card.points;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -145,25 +383,24 @@ class _StampCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Image ──
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(12)),
             child: Stack(
               children: [
                 SizedBox(
                   width: double.infinity,
                   height: 130,
-                  child: Image.asset(
-                    card.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF1E3A8A),
-                      child: Center(
-                        child: Icon(Icons.image_outlined,
-                            size: 40, color: Colors.white.withOpacity(0.4)),
-                      ),
-                    ),
-                  ),
+                  child: card.imageUrl.isNotEmpty
+                      ? Image.network(
+                          '${ApiConfig.baseUrl.replaceAll('api/', '')}${card.imageUrl.startsWith('/') ? card.imageUrl.substring(1) : card.imageUrl}',
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholder(),
+                        )
+                      : _placeholder(),
                 ),
+                // Reward badge
                 Positioned(
                   top: 10,
                   left: 10,
@@ -191,9 +428,30 @@ class _StampCardWidget extends StatelessWidget {
                     ),
                   ),
                 ),
+                // Expired overlay
+                if (!isActive)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.45),
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12)),
+                      ),
+                      child: const Center(
+                        child: Text('KADALUARSA',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                letterSpacing: 2)),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
+
+          // ── Info + redeem button ──
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -221,6 +479,30 @@ class _StampCardWidget extends StatelessWidget {
                 Text('Berlaku sampai ${card.deadline}',
                     style: const TextStyle(
                         fontSize: 12, color: Color(0xFF6B7280))),
+                if (isActive) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: canRedeem ? () => onRedeem(card) : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1D4ED8),
+                        disabledBackgroundColor: const Color(0xFFBFDBFE),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      child: Text(
+                        canRedeem ? 'Tukar Sekarang' : 'Poin Tidak Cukup',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -228,19 +510,12 @@ class _StampCardWidget extends StatelessWidget {
       ),
     );
   }
-}
 
-class _StampCard {
-  final String imagePath;
-  final String title;
-  final int points;
-  final String deadline;
-  final String rewardLabel;
-  const _StampCard({
-    required this.imagePath,
-    required this.title,
-    required this.points,
-    required this.deadline,
-    required this.rewardLabel,
-  });
+  Widget _placeholder() => Container(
+        color: const Color(0xFF1E3A8A),
+        child: Center(
+          child: Icon(Icons.image_outlined,
+              size: 40, color: Colors.white.withOpacity(0.4)),
+        ),
+      );
 }

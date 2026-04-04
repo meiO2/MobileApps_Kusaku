@@ -16,14 +16,12 @@ from .serializers import (
 )
 
 class CategoryListView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         categories = Category.objects.filter(user=request.user)
         return Response(CategorySerializer(categories, many=True).data)
 
 class CategoryUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def put(self, request, pk):
         category = get_object_or_404(Category, pk=pk, user=request.user)
@@ -35,7 +33,6 @@ class CategoryUpdateView(APIView):
         return Response(CategorySerializer(category).data)
 
 class BudgetView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         budgets = CategoryBudget.objects.filter(user=request.user)
@@ -98,7 +95,6 @@ class BudgetView(APIView):
         )
 
 class BalanceView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         total_income = Income.objects.filter(user=request.user).aggregate(
@@ -131,7 +127,6 @@ class BalanceView(APIView):
         })
     
 class ExpenseView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         expenses = Expense.objects.filter(user=request.user)
@@ -145,7 +140,6 @@ class ExpenseView(APIView):
         return Response(serializer.errors, status=400)
 
 class IncomeView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         incomes = Income.objects.filter(user=request.user)

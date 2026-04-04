@@ -12,7 +12,6 @@ from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
 
 class StampListView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         stamps = Stamp.objects.filter(deadline__gt=timezone.now())
@@ -20,7 +19,6 @@ class StampListView(APIView):
 
 
 class RedeemStampView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def post(self, request, stamp_id):
         try:
@@ -62,7 +60,6 @@ class RedeemStampView(APIView):
 
 
 class UserStampHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user_stamps = UserStamp.objects.filter(user=request.user)
