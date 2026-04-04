@@ -113,10 +113,21 @@ class BalanceView(APIView):
 
         balance = total_income - total_expense
 
+        points_earned = Expense.objects.filter(user=request.user).aggregate(
+            total=Sum('kusaku_points')
+        )['total'] or 0
+
+        points_spent = Stamp.objects.filter(user=request.user).aggregate(
+            total=Sum('points_used')
+        )['total'] or 0
+
+        kusaku_points = points_earned - points_spent
+
         return Response({
             "total_income": total_income,
             "total_expense": total_expense,
-            "balance": balance
+            "balance": balance,
+            "kusaku_points": kusaku_points,
         })
     
 class ExpenseView(APIView):

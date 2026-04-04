@@ -38,11 +38,7 @@ class SendOTPView(APIView):
 
             send_mail(
                 'Kode OTP Kusaku',
-<<<<<<< HEAD
                 (f'Kode OTP kamu adalah {otp}'),
-=======
-                (f'Kode OTP kamu adalah {otp}' 'Tes Tes'),
->>>>>>> feature/fullprofile
                 settings.EMAIL_HOST_USER,
                 [email],
                 fail_silently=False,
@@ -161,4 +157,20 @@ class SendForgotPasswordOTPView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+class UpdateProfileView(APIView):
+    def put(self, request, user_id):
+        user = get_object_or_404(Account, id=user_id)
+
+        user.username = request.data.get('username', user.username)
+        user.email = request.data.get('email', user.email)
+        user.phone = request.data.get('phone_number', user.phone_number)
+
+        user.save()
+
+        return Response({
+            "message": "Profile updated successfully",
+            "username": user.username,
+            "email": user.email,
+            "phone_number": user.phone,
+        }, status=200)

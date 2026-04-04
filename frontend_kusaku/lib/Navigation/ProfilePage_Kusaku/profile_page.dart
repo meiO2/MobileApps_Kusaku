@@ -13,7 +13,6 @@ import '../../Screens/Login_Screen-frontend/login_screen.dart';
 import '../../config/api_config.dart';
 
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
-import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/panduan_kusaku_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_profile_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/pusat_bantuan_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_security_code_page.dart';
@@ -28,7 +27,42 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String _username = "Guest User";
-  String _phone = '082136164844';
+  String _phone = "-";
+
+  Future<void> _fetchUserProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        print("User ID not found");
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}users/profile/$userId/'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        setState(() {
+          _username = data['username'] ?? "No Name";
+          _phone = data['phone_number'] ?? "-";
+        });
+      } else {
+        print("Failed: ${response.body}");
+      }
+    } catch (e) {
+      print("Error: $e");
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserProfile();
+  }
 
   void _showSignOutDialog() {
     showDialog(
@@ -49,9 +83,16 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              // TODO: actual sign out logic
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear(); // hapus semua data login
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1D4ED8),
@@ -68,7 +109,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Get first letter for Avatar
     String avatarLetter = _username.isNotEmpty ? _username[0].toUpperCase() : "?";
 
     return Scaffold(

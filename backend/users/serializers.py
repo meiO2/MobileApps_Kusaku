@@ -65,7 +65,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-
 class AccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Account
