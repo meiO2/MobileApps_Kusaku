@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class QrisKitaPage extends StatelessWidget {
-  const QrisKitaPage({super.key});
+  final int userId; // 🔥 wajib kirim dari user login
+
+  const QrisKitaPage({
+    super.key,
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -10,8 +16,10 @@ class QrisKitaPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1D4ED8),
         foregroundColor: Colors.white,
-        title: const Text('Qris Kita',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text(
+          'Qris Kita',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -24,7 +32,7 @@ class QrisKitaPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // QR container
+              // ✅ QR container
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -38,27 +46,24 @@ class QrisKitaPage extends StatelessWidget {
                 ),
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: Image.asset(
-                    'assets/images/qr/qrcode.png', // TODO: replace with real/generated QR
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.qr_code_2,
-                          size: 120,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ),
+                  child: QrImageView(
+                    data: userId.toString(), // 🔥 ISI QR
+                    version: QrVersions.auto,
                   ),
                 ),
               ),
 
               const SizedBox(height: 20),
+
+              Text(
+                'User ID: $userId',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               const Text(
                 'Tinggal Scan dan Bayar',

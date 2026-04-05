@@ -10,5 +10,6 @@ urlpatterns = [
     path('api/ads/', include('ads.urls')),
     path('api/', include('transactions.urls')),
     path('api/stamp/', include('kusakustamp.urls')),
+    path('api/qr/', include('qrpay.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

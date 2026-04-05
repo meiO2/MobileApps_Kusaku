@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'ads',
     'transactions.apps.TransactionsConfig',
     'kusakustamp',
+    'qrpay',
 ]
 
 MIDDLEWARE = [
