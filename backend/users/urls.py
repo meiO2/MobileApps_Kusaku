@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SendOTPView, RegisterView, LoginView, ProfileDetailView, ChangePasswordView, ChangeTransactionPinView, VerifyOTPView, ResetPasswordView, SendForgotPasswordOTPView, UpdateProfileView
+from .views import SendOTPView, RegisterView, LoginView, ProfileDetailView, ChangePasswordView, ChangeTransactionPinView, VerifyOTPView, ResetPasswordView, SendForgotPasswordOTPView, UpdateProfileView, VerifyTransactionPinView
 
 urlpatterns = [
     path('send-otp/', SendOTPView.as_view(), name='send-otp'),
@@ -12,4 +12,5 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
     path('forgot-password/send-otp/', SendForgotPasswordOTPView.as_view()),
     path('profile/update/<int:user_id>/', UpdateProfileView.as_view()),
+    path('verify-pin/', VerifyTransactionPinView.as_view(), name='verify-pin'),
 ]

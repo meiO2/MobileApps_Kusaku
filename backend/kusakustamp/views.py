@@ -1,5 +1,4 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
 from .models import Stamp, UserStamp
@@ -7,9 +6,9 @@ from .serializers import StampSerializer, UserStampSerializer
 from transactions.models import Expense
 from django.db.models import Sum
 from rest_framework.permissions import IsAdminUser
-
 from rest_framework import generics
 from rest_framework.parsers import MultiPartParser, FormParser
+
 
 class StampListView(APIView):
 
@@ -20,7 +19,7 @@ class StampListView(APIView):
 
 class RedeemStampView(APIView):
 
-    def post(self, request, stamp_id):
+    def post(self, request, stamp_id, user_id):
         try:
             stamp = Stamp.objects.get(id=stamp_id)
         except Stamp.DoesNotExist:
@@ -29,11 +28,11 @@ class RedeemStampView(APIView):
         if stamp.is_expired():
             return Response({"error": "Stamp sudah kadaluarsa."}, status=400)
 
-        points_earned = Expense.objects.filter(user=request.user).aggregate(
+        points_earned = Expense.objects.filter(user_id=user_id).aggregate(
             total=Sum('kusaku_points')
         )['total'] or 0
 
-        points_spent = UserStamp.objects.filter(user=request.user).aggregate(
+        points_spent = UserStamp.objects.filter(user_id=user_id).aggregate(
             total=Sum('points_used')
         )['total'] or 0
 
@@ -47,7 +46,7 @@ class RedeemStampView(APIView):
             }, status=400)
 
         user_stamp = UserStamp.objects.create(
-            user=request.user,
+            user_id=user_id,
             stamp=stamp,
             points_used=stamp.points_needed,
         )
@@ -61,9 +60,10 @@ class RedeemStampView(APIView):
 
 class UserStampHistoryView(APIView):
 
-    def get(self, request):
-        user_stamps = UserStamp.objects.filter(user=request.user)
+    def get(self, request, user_id):
+        user_stamps = UserStamp.objects.filter(user_id=user_id)
         return Response(UserStampSerializer(user_stamps, many=True).data)
+
 
 class StampCreateView(generics.CreateAPIView):
     permission_classes = [IsAdminUser]

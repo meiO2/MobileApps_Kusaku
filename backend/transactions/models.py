@@ -32,14 +32,12 @@ class CategoryBudget(models.Model):
 
 class Expense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.PROTECT
-    )
+    category = models.ForeignKey(Category, on_delete=models.PROTECT)
+    receiver = models.CharField(max_length=255, default='category')
 
     total_payment = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    kusaku_points = models.IntegerField(default=0)  # auto-calculated on save
+    kusaku_points = models.IntegerField(default=0)
 
     date = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)

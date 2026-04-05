@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../config/api_config.dart';
 
 class UbahSecurityCodePage extends StatefulWidget {
   const UbahSecurityCodePage({super.key});
@@ -14,6 +18,7 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
   _SecurityStep _step = _SecurityStep.enterCurrent;
   String _currentInput = '';
   String _newInput = '';
+  bool _isLoading = false;
   Timer? _successTimer;
 
   @override
@@ -23,6 +28,7 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
   }
 
   void _onCurrentKey(String key) {
+    if (_isLoading) return;
     setState(() {
       if (key == '⌫') {
         if (_currentInput.isNotEmpty)
@@ -30,17 +36,64 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
       } else if (_currentInput.length < 6) {
         _currentInput += key;
         if (_currentInput.length == 6) {
-          // TODO: validate current PIN against API
-          // For now, any 6-digit code is accepted
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) setState(() => _step = _SecurityStep.createNew);
-          });
+          _verifyCurrentPin();
         }
       }
     });
   }
 
+  Future<void> _verifyCurrentPin() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        _showError('Sesi tidak ditemukan, silakan login ulang');
+        setState(() {
+          _isLoading = false;
+          _currentInput = '';
+        });
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}users/verify-pin/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'pin': _currentInput,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isLoading = false;
+          _step = _SecurityStep.createNew;
+        });
+      } else {
+        final data = jsonDecode(response.body);
+        _showError(data['error'] ?? 'PIN salah');
+        setState(() {
+          _isLoading = false;
+          _currentInput = '';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Koneksi gagal, coba lagi');
+      setState(() {
+        _isLoading = false;
+        _currentInput = '';
+      });
+    }
+  }
+
   void _onNewKey(String key) {
+    if (_isLoading) return;
     setState(() {
       if (key == '⌫') {
         if (_newInput.isNotEmpty)
@@ -48,22 +101,81 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
       } else if (_newInput.length < 6) {
         _newInput += key;
         if (_newInput.length == 6) {
-          // TODO: call API to update security code with _newInput
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              setState(() => _step = _SecurityStep.success);
-              // Auto-navigate back to profile after 3 seconds
-              _successTimer = Timer(const Duration(seconds: 3), () {
-                if (mounted) {
-                  // Pop back to profile (pop twice: this page + any intermediate)
-                  Navigator.of(context).pop();
-                }
-              });
-            }
-          });
+          _submitChange();
         }
       }
     });
+  }
+
+  Future<void> _submitChange() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        _showError('Sesi tidak ditemukan, silakan login ulang');
+        setState(() {
+          _isLoading = false;
+          _newInput = '';
+        });
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}users/change-pin/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'old_pin': _currentInput,
+          'new_pin': _newInput,
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isLoading = false;
+          _step = _SecurityStep.success;
+        });
+        _successTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) Navigator.of(context).pop();
+        });
+      } else {
+        final data = jsonDecode(response.body);
+        // Extract error message — could be a list or string
+        String message = 'Gagal mengubah PIN';
+        final errors = data['non_field_errors'];
+        if (errors != null && errors is List && errors.isNotEmpty) {
+          message = errors[0];
+        }
+        _showError(message);
+        setState(() {
+          _isLoading = false;
+          _newInput = '';
+          // If old PIN was wrong, go back to re-enter it
+          if (message.contains('PIN lama salah')) {
+            _currentInput = '';
+            _step = _SecurityStep.enterCurrent;
+          }
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Koneksi gagal, coba lagi');
+      setState(() {
+        _isLoading = false;
+        _newInput = '';
+      });
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -96,7 +208,8 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
         return _buildPinEntry(
           key: const ValueKey('current'),
           title: 'Masukan Security Code Anda saat ini',
-          subtitle: 'Security Code digunakan untuk masuk ke akun Anda\ndan bertransaksi',
+          subtitle:
+              'Security Code digunakan untuk masuk ke akun Anda\ndan bertransaksi',
           input: _currentInput,
           onKey: _onCurrentKey,
         );
@@ -104,7 +217,8 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
         return _buildPinEntry(
           key: const ValueKey('new'),
           title: 'Buat Security Code baru',
-          subtitle: 'Security Code digunakan untuk masuk ke akun Anda\ndan bertransaksi',
+          subtitle:
+              'Security Code digunakan untuk masuk ke akun Anda\ndan bertransaksi',
           input: _newInput,
           onKey: _onNewKey,
         );
@@ -124,7 +238,6 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
       key: key,
       child: Column(
         children: [
-          // ── White card with title + PIN dots ──
           Container(
             width: double.infinity,
             margin: const EdgeInsets.all(16),
@@ -163,7 +276,7 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
                 ),
                 const SizedBox(height: 40),
 
-                // PIN dots / dashes
+                // PIN dots
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(6, (i) {
@@ -181,11 +294,16 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
                     );
                   }),
                 ),
+
+                if (_isLoading) ...[
+                  const SizedBox(height: 24),
+                  const CircularProgressIndicator(color: Color(0xFF1D4ED8)),
+                ],
               ],
             ),
           ),
 
-          // ── Numpad ──
+          // Numpad
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: GridView.count(
@@ -201,13 +319,15 @@ class _UbahSecurityCodePageState extends State<UbahSecurityCodePage> {
               ].map((key) {
                 if (key.isEmpty) return const SizedBox();
                 return TextButton(
-                  onPressed: () => onKey(key),
+                  onPressed: _isLoading ? null : () => onKey(key),
                   child: Text(
                     key,
                     style: TextStyle(
                       fontSize: key == '⌫' ? 18 : 24,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF111827),
+                      color: _isLoading
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFF111827),
                     ),
                   ),
                 );

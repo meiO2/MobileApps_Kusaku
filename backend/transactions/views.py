@@ -1,11 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from django.db.models import Sum
 from django.db import transaction
-from rest_framework import status
 
 from .models import Category, Expense, Income, CategoryBudget
 from .serializers import (
@@ -14,6 +12,7 @@ from .serializers import (
     IncomeSerializer,
     CategoryBudgetSerializer,
 )
+from kusakustamp.models import UserStamp
 
 class CategoryListView(APIView):
 
@@ -94,48 +93,40 @@ class BudgetView(APIView):
             status=status.HTTP_200_OK
         )
 
+# views.py
 class BalanceView(APIView):
-
-    def get(self, request):
-        total_income = Income.objects.filter(user=request.user).aggregate(
+    def get(self, request, user_id):
+        total_income = Income.objects.filter(user_id=user_id).aggregate(
             total=Sum('amount')
         )['total'] or 0
 
-        expenses = Expense.objects.filter(user=request.user)
-        total_expense = sum(
-            e.total_payment + e.transaction_fee
-            for e in expenses
-        )
+        expenses = Expense.objects.filter(user_id=user_id)
+        total_expense = sum(e.total_payment + e.transaction_fee for e in expenses)
 
-        balance = total_income - total_expense
-
-        points_earned = Expense.objects.filter(user=request.user).aggregate(
+        points_earned = Expense.objects.filter(user_id=user_id).aggregate(
             total=Sum('kusaku_points')
         )['total'] or 0
 
-        points_spent = Stamp.objects.filter(user=request.user).aggregate(
+        points_spent = UserStamp.objects.filter(user_id=user_id).aggregate(
             total=Sum('points_used')
         )['total'] or 0
-
-        kusaku_points = points_earned - points_spent
 
         return Response({
             "total_income": total_income,
             "total_expense": total_expense,
-            "balance": balance,
-            "kusaku_points": kusaku_points,
+            "balance": total_income - total_expense,
+            "kusaku_points": points_earned - points_spent,
         })
-    
-class ExpenseView(APIView):
 
-    def get(self, request):
-        expenses = Expense.objects.filter(user=request.user)
+class ExpenseView(APIView):
+    def get(self, request, user_id):
+        expenses = Expense.objects.filter(user_id=user_id)
         return Response(ExpenseSerializer(expenses, many=True).data)
 
-    def post(self, request):
+    def post(self, request, user_id):
         serializer = ExpenseSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            serializer.save(user_id=user_id)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
@@ -151,5 +142,4 @@ class IncomeView(APIView):
             serializer.save(user=request.user)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
-
 

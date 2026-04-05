@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
+from django.contrib.auth.hashers import check_password  # add this
 
 from .models import EmailOTP, Account
 from .serializers import RegisterSerializer, SendOTPSerializer, ChangePasswordSerializer, ChangeTransactionPinSerializer, VerifyOTPSerializer, ResetPasswordSerializer
@@ -172,3 +173,20 @@ class UpdateProfileView(APIView):
             "email": user.email,
             "phone_number": user.phone_number,
         }, status=200)
+
+class VerifyTransactionPinView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        pin = request.data.get('pin')
+
+        user = Account.objects.filter(id=user_id).first()
+        if not user:
+            return Response({"error": "User tidak ditemukan"}, status=404)
+
+        if not user.transaction_password:
+            return Response({"error": "PIN belum diset"}, status=400)
+
+        if not check_password(pin, user.transaction_password):
+            return Response({"error": "PIN salah"}, status=400)
+
+        return Response({"message": "PIN valid"}, status=200)

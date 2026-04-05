@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Your existing imports
 import '../../Services/transaction_pin_store.dart';
 import '../../Widgets/kusaku_auth_widgets.dart';
 import 'phone_signin_screen.dart';
@@ -12,6 +11,7 @@ import '../ForgotPassword_Screen-frontend/forgot_password_screen.dart';
 import 'package:frontend_kusaku/navbar.dart';
 
 import '../../config/api_config.dart';
+import 'package:local_auth/local_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,11 +21,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final LocalAuthentication _localAuth = LocalAuthentication();
   late final TextEditingController _usernameController;
   late final TextEditingController _passwordController;
   late final TextEditingController _phoneController;
   bool _obscurePassword = true;
-  bool _isLoading = false; // Tracks API request status
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -33,10 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
     _usernameController = TextEditingController();
     _passwordController = TextEditingController();
     _phoneController = TextEditingController();
-    _loadLastSession(); // Auto-fill username if exists
+    _loadLastSession();
   }
 
-  // Logic to "Remember" the last user for PIN access
   Future<void> _loadLastSession() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUsername = prefs.getString('last_username');
@@ -44,6 +44,46 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _usernameController.text = savedUsername;
       });
+    }
+
+    final fingerprintEnabled = prefs.getBool('fingerprint_enabled') ?? false;
+    if (fingerprintEnabled && savedUsername != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) _loginWithFingerprint();
+    }
+  }
+
+  Future<void> _loginWithFingerprint() async {
+    try {
+      final bool canCheck = await _localAuth.canCheckBiometrics;
+      final bool isSupported = await _localAuth.isDeviceSupported();
+
+      if (!canCheck || !isSupported) return;
+
+      final bool authenticated = await _localAuth.authenticate(
+        localizedReason: 'Login ke Kusaku dengan sidik jari',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (!authenticated || !mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        _showSnackBar('Sesi tidak ditemukan, login dengan password dulu');
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
+    } catch (e) {
+      _showSnackBar('Biometrik gagal: $e');
     }
   }
 
@@ -207,12 +247,41 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 14),
                           Center(
-                            child: _isLoading 
+                            child: _isLoading
                               ? const CircularProgressIndicator()
                               : KusakuGradientButton(
                                   text: 'Log in',
                                   onPressed: _handleLogin,
                                 ),
+                          ),
+
+                          // Add this below:
+                          FutureBuilder<SharedPreferences>(
+                            future: SharedPreferences.getInstance(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) return const SizedBox();
+                              final enabled = snapshot.data!.getBool('fingerprint_enabled') ?? false;
+                              final hasSession = snapshot.data!.getInt('user_id') != null;
+                              if (!enabled || !hasSession) return const SizedBox();
+                              return Column(
+                                children: [
+                                  const SizedBox(height: 12),
+                                  GestureDetector(
+                                    onTap: _loginWithFingerprint,
+                                    child: const Icon(
+                                      Icons.fingerprint,
+                                      size: 48,
+                                      color: Color(0xFF1D4ED8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Login dengan sidik jari',
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: 20),
                           const Divider(

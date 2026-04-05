@@ -15,7 +15,7 @@ class StampSerializer(serializers.ModelSerializer):
 
 class UserStampSerializer(serializers.ModelSerializer):
     stamp = StampSerializer(read_only=True)
-
+    
     class Meta:
         model = UserStamp
-        fields = ['id', 'stamp', 'points_used', 'redeemed_at']
+        fields = '__all__'

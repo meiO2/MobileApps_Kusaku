@@ -17,6 +17,7 @@ import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_profile_page.
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/pusat_bantuan_page.dart';
 import 'package:frontend_kusaku/Navigation/ProfilePage_Kusaku/ubah_security_code_page.dart';
 
+import 'package:local_auth/local_auth.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -404,7 +405,6 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
-// ── Fingerprint toggle tile ──
 class _FingerprintTile extends StatefulWidget {
   const _FingerprintTile();
 
@@ -413,7 +413,55 @@ class _FingerprintTile extends StatefulWidget {
 }
 
 class _FingerprintTileState extends State<_FingerprintTile> {
+  final LocalAuthentication _auth = LocalAuthentication();
   bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSetting();
+  }
+
+  Future<void> _loadSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _enabled = prefs.getBool('fingerprint_enabled') ?? false;
+    });
+  }
+
+  Future<void> _onToggle(bool value) async {
+    if (value) {
+      // Check if biometrics is available on device
+      final bool canCheck = await _auth.canCheckBiometrics;
+      final bool isSupported = await _auth.isDeviceSupported();
+
+      if (!canCheck || !isSupported) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Perangkat tidak mendukung biometrik'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Ask user to authenticate once to confirm they want to enable it
+      final bool authenticated = await _auth.authenticate(
+        localizedReason: 'Konfirmasi sidik jari untuk mengaktifkan login biometrik',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (!authenticated) return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('fingerprint_enabled', value);
+    setState(() => _enabled = value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -427,7 +475,7 @@ class _FingerprintTileState extends State<_FingerprintTile> {
         ),
         trailing: Switch(
           value: _enabled,
-          onChanged: (val) => setState(() => _enabled = val),
+          onChanged: _onToggle,
           activeColor: const Color(0xFF1D4ED8),
         ),
         dense: true,

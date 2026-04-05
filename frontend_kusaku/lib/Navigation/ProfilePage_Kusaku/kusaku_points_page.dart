@@ -1,4 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../config/api_config.dart';
 
 class KusakuPointsPage extends StatefulWidget {
   const KusakuPointsPage({super.key});
@@ -11,27 +15,114 @@ class _KusakuPointsPageState extends State<KusakuPointsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  final List<_PointTransaction> _didapat = [
-    _PointTransaction(date: '16 Maret 2026', month: 'Maret 2026', label: 'Starbucek', points: 50),
-    _PointTransaction(date: '8 Maret 2026', month: 'Maret 2026', label: 'Pulsa', points: 60),
-    _PointTransaction(date: '14 Februari 2026', month: 'Februari 2026', label: 'Indomelorot', points: 30),
-    _PointTransaction(date: '3 Februari 2026', month: 'Februari 2026', label: 'Crab Food', points: 40),
-  ];
+  bool _isLoading = true;
+  String? _error;
 
-  final List<_PointTransaction> _terpakai = [
-    _PointTransaction(date: '30 Februari 2026', month: 'Februari 2026', label: 'Kusaku Stamp Gacoan Feb 2026', points: 1500),
-  ];
+  int _totalPoints = 0;
+  List<_PointTransaction> _didapat = [];
+  List<_PointTransaction> _terpakai = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _fetchPoints();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchPoints() async {
+  setState(() {
+    _isLoading = true;
+    _error = null;
+  });
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+
+    if (userId == null) {
+      setState(() {
+        _error = 'Sesi tidak ditemukan, silakan login ulang';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final results = await Future.wait([
+      http.get(Uri.parse('${ApiConfig.baseUrl}balance/$userId/')),
+      http.get(Uri.parse('${ApiConfig.baseUrl}expenses/$userId/')),
+      http.get(Uri.parse('${ApiConfig.baseUrl}stamp/history/$userId/')),
+    ]);
+
+    for (final r in results) {
+      if (r.statusCode != 200) {
+        setState(() {
+          _error = 'Gagal memuat data (${r.statusCode})';
+          _isLoading = false;
+        });
+        return;
+      }
+    }
+
+    final balance  = jsonDecode(results[0].body);
+    final expenses = jsonDecode(results[1].body) as List;
+    final stamps   = jsonDecode(results[2].body) as List;
+
+    setState(() {
+      _totalPoints = balance['kusaku_points'] ?? 0;
+
+      _didapat = expenses
+          .where((e) => (e['kusaku_points'] ?? 0) > 0)
+          .map((e) {
+            final date = DateTime.parse(e['date']);
+            return _PointTransaction(
+              date: _formatDate(date),
+              month: _formatMonth(date),
+              label: e['receiver'] ?? 'Pengeluaran',
+              points: e['kusaku_points'],
+            );
+          })
+          .toList();
+
+      _terpakai = stamps.map((s) {
+        final date = DateTime.parse(s['redeemed_at']);
+        return _PointTransaction(
+          date: _formatDate(date),
+          month: _formatMonth(date),
+          label: 'Kusaku Stamp ${s['stamp']['title']}',
+          points: s['points_used'],
+        );
+      }).toList();
+
+      _isLoading = false;
+    });
+  } catch (e) {
+    setState(() {
+      _error = 'Tidak dapat terhubung ke server';
+      _isLoading = false;
+    });
+  }
+}
+
+  String _formatDate(DateTime d) {
+    const months = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${d.day} ${months[d.month]} ${d.year}';
+  }
+
+  String _formatMonth(DateTime d) {
+    const months = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${months[d.month]} ${d.year}';
   }
 
   @override
@@ -51,58 +142,105 @@ class _KusakuPointsPageState extends State<KusakuPointsPage>
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            color: const Color(0xFFEFF6FF),
-            child: Column(
-              children: const [
-                Text(
-                  '110',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1D4ED8),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1D4ED8)),
+            )
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off, size: 48, color: Color(0xFF9CA3AF)),
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: _fetchPoints,
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Setara dengan Rp 110',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                )
+              : Column(
+                  children: [
+                    // Points summary header
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      color: const Color(0xFFEFF6FF),
+                      child: Column(
+                        children: [
+                          Text(
+                            '$_totalPoints',
+                            style: const TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1D4ED8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Setara dengan Rp $_totalPoints',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-          TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFF1D4ED8),
-            unselectedLabelColor: const Color(0xFF6B7280),
-            indicatorColor: const Color(0xFF1D4ED8),
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
-            tabs: const [
-              Tab(text: 'Didapat'),
-              Tab(text: 'Terpakai'),
-            ],
-          ),
+                    // Tabs
+                    TabBar(
+                      controller: _tabController,
+                      labelColor: const Color(0xFF1D4ED8),
+                      unselectedLabelColor: const Color(0xFF6B7280),
+                      indicatorColor: const Color(0xFF1D4ED8),
+                      labelStyle: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                      unselectedLabelStyle: const TextStyle(
+                          fontWeight: FontWeight.w400, fontSize: 14),
+                      tabs: const [
+                        Tab(text: 'Didapat'),
+                        Tab(text: 'Terpakai'),
+                      ],
+                    ),
 
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _TransactionList(transactions: _didapat, isEarned: true),
-                _TransactionList(transactions: _terpakai, isEarned: false),
-              ],
-            ),
-          ),
-        ],
-      ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _didapat.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Belum ada poin yang didapat',
+                                    style: TextStyle(color: Color(0xFF6B7280)),
+                                  ),
+                                )
+                              : _TransactionList(
+                                  transactions: _didapat,
+                                  isEarned: true,
+                                ),
+                          _terpakai.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Belum ada poin yang terpakai',
+                                    style: TextStyle(color: Color(0xFF6B7280)),
+                                  ),
+                                )
+                              : _TransactionList(
+                                  transactions: _terpakai,
+                                  isEarned: false,
+                                ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
 }
@@ -136,7 +274,9 @@ class _TransactionList extends StatelessWidget {
               ),
             ),
           ),
-          ...entry.value.map((t) => _TransactionTile(transaction: t, isEarned: isEarned)),
+          ...entry.value.map(
+            (t) => _TransactionTile(transaction: t, isEarned: isEarned),
+          ),
         ];
       }).toList(),
     );
@@ -176,11 +316,13 @@ class _TransactionTile extends StatelessWidget {
                 ),
               ),
               Text(
-                '${_formatPoints(transaction.points)} Points',
+                '${isEarned ? "+" : "-"}${_formatPoints(transaction.points)} Points',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isEarned ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                  color: isEarned
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFFDC2626),
                 ),
               ),
             ],

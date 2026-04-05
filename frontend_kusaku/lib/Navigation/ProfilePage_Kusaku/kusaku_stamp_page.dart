@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../config/api_config.dart';
 
-// ── Data model ─────────────────────────────────────────────────────────────
 class _StampCard {
   final int id;
   final String imageUrl;
@@ -14,7 +13,7 @@ class _StampCard {
   final String rewardLabel;
   final bool isExpired;
 
-  _StampCard({
+  const _StampCard({
     required this.id,
     required this.imageUrl,
     required this.title,
@@ -30,21 +29,18 @@ class _StampCard {
       '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
     ];
-    final String deadlineStr = '${dt.day} ${bulan[dt.month]} ${dt.year}';
-
     return _StampCard(
       id: json['id'],
       imageUrl: json['image'] ?? '',
       title: json['title'] ?? '',
       points: json['points_needed'] ?? 0,
-      deadline: deadlineStr,
+      deadline: '${dt.day} ${bulan[dt.month]} ${dt.year}',
       rewardLabel: json['reward_label'] ?? '',
       isExpired: json['is_expired'] ?? false,
     );
   }
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
 class KusakuStampPage extends StatefulWidget {
   const KusakuStampPage({super.key});
 
@@ -59,7 +55,7 @@ class _KusakuStampPageState extends State<KusakuStampPage>
   bool _isLoading = true;
   String? _errorMessage;
   int _userPoints = 0;
-  int? _userId; // stored just like ProfilePage stores it
+  int? _userId;
 
   List<_StampCard> _aktif = [];
   List<_StampCard> _tidakAktif = [];
@@ -77,7 +73,6 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     super.dispose();
   }
 
-  // ── Load data — same pattern as ProfilePage._fetchUserProfile() ──────────
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -85,13 +80,12 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     });
 
     try {
-      // Exactly like ProfilePage: just read user_id from prefs
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
 
       if (userId == null) {
         setState(() {
-          _errorMessage = 'User not logged in';
+          _errorMessage = 'Sesi tidak ditemukan, silakan login ulang';
           _isLoading = false;
         });
         return;
@@ -99,31 +93,26 @@ class _KusakuStampPageState extends State<KusakuStampPage>
 
       _userId = userId;
 
-      // Fetch stamps — pass userId as query param, no auth header needed
-      final stampsRes = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}stamp/view/?user_id=$userId'),
-      );
+      final results = await Future.wait([
+        http.get(Uri.parse('${ApiConfig.baseUrl}stamp/view/')),
+        http.get(Uri.parse('${ApiConfig.baseUrl}balance/$userId/')),
+      ]);
 
-      if (stampsRes.statusCode != 200) {
+      if (results[0].statusCode != 200) {
         setState(() {
-          _errorMessage = 'Gagal memuat stamp (${stampsRes.statusCode})';
+          _errorMessage = 'Gagal memuat stamp (${results[0].statusCode})';
           _isLoading = false;
         });
         return;
       }
 
-      // Fetch balance — same pattern
-      final balanceRes = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}balance/?user_id=$userId'),
-      );
-
-      final List<dynamic> data = jsonDecode(stampsRes.body);
-      final allStamps = data.map((e) => _StampCard.fromJson(e)).toList();
+      final allStamps = (jsonDecode(results[0].body) as List)
+          .map((e) => _StampCard.fromJson(e))
+          .toList();
 
       int userPoints = 0;
-      if (balanceRes.statusCode == 200) {
-        final balanceData = jsonDecode(balanceRes.body);
-        userPoints = (balanceData['kusaku_points'] ?? 0) as int;
+      if (results[1].statusCode == 200) {
+        userPoints = (jsonDecode(results[1].body)['kusaku_points'] ?? 0) as int;
       }
 
       setState(() {
@@ -140,7 +129,6 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     }
   }
 
-  // ── Redeem ─────────────────────────────────────────────────────────────
   Future<void> _redeem(_StampCard card) async {
     if (_userPoints < card.points) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,16 +169,16 @@ class _KusakuStampPageState extends State<KusakuStampPage>
       ),
     );
 
-    if (confirm != true) return;
+    if (confirm != true || !mounted) return;
 
     try {
-      // Pass user_id as query param — same pattern, no auth header
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}stamps/redeem/${card.id}/?user_id=$_userId'),
+        Uri.parse('${ApiConfig.baseUrl}stamps/redeem/${card.id}/$_userId/'),
       );
 
+      if (!mounted) return;
+
       if (response.statusCode == 201) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Stamp berhasil ditukarkan! 🎉'),
@@ -200,7 +188,6 @@ class _KusakuStampPageState extends State<KusakuStampPage>
         _loadData();
       } else {
         final data = jsonDecode(response.body);
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['error'] ?? 'Gagal menukar stamp.'),
@@ -211,14 +198,11 @@ class _KusakuStampPageState extends State<KusakuStampPage>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Koneksi gagal: $e'),
-            backgroundColor: Colors.red),
+        SnackBar(content: Text('Koneksi gagal: $e'), backgroundColor: Colors.red),
       );
     }
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,27 +256,20 @@ class _KusakuStampPageState extends State<KusakuStampPage>
                     ),
                   ),
                 )
-              : Column(
+              : TabBarView(
+                  controller: _tabController,
                   children: [
-
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _StampList(
-                            cards: _aktif,
-                            isActive: true,
-                            userPoints: _userPoints,
-                            onRedeem: _redeem,
-                          ),
-                          _StampList(
-                            cards: _tidakAktif,
-                            isActive: false,
-                            userPoints: _userPoints,
-                            onRedeem: _redeem,
-                          ),
-                        ],
-                      ),
+                    _StampList(
+                      cards: _aktif,
+                      isActive: true,
+                      userPoints: _userPoints,
+                      onRedeem: _redeem,
+                    ),
+                    _StampList(
+                      cards: _tidakAktif,
+                      isActive: false,
+                      userPoints: _userPoints,
+                      onRedeem: _redeem,
                     ),
                   ],
                 ),
@@ -300,7 +277,6 @@ class _KusakuStampPageState extends State<KusakuStampPage>
   }
 }
 
-// ── List ───────────────────────────────────────────────────────────────────
 class _StampList extends StatelessWidget {
   final List<_StampCard> cards;
   final bool isActive;
@@ -345,7 +321,6 @@ class _StampList extends StatelessWidget {
   }
 }
 
-// ── Card widget ────────────────────────────────────────────────────────────
 class _StampCardWidget extends StatelessWidget {
   final _StampCard card;
   final int userPoints;
@@ -383,7 +358,7 @@ class _StampCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Image ──
+          // Image
           ClipRRect(
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(12)),
@@ -400,7 +375,6 @@ class _StampCardWidget extends StatelessWidget {
                         )
                       : _placeholder(),
                 ),
-                // Reward badge
                 Positioned(
                   top: 10,
                   left: 10,
@@ -428,7 +402,6 @@ class _StampCardWidget extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Expired overlay
                 if (!isActive)
                   Positioned.fill(
                     child: Container(
@@ -451,7 +424,7 @@ class _StampCardWidget extends StatelessWidget {
             ),
           ),
 
-          // ── Info + redeem button ──
+          // Info + redeem button
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
