@@ -19,7 +19,7 @@ enum _TransferStep {
 
 class _TransferPageState extends State<TransferPage> {
   _TransferStep _step = _TransferStep.selectMethod;
-  String _selectedMethod = '';
+  String _selectedMethod = ''; //uhhhh kykny ini cmn metode pembayaran deh
   String _recipientCode = '';
   String _recipientName = '';
   String _amount = '';

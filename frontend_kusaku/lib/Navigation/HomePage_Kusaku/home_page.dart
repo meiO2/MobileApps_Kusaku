@@ -22,24 +22,24 @@ class _HomePageState extends State<HomePage> {
   ];
 
   // TODO: replace with real activity data from API
-final List<_ActivityItem> _activities = const [
-  _ActivityItem(
-    label: 'Qris Starbucek',
-    subtitle: 'Hari ini',
-    amount: '-Rp 45.000',
-    icon: Icons.local_cafe,
-    iconColor: Color(0xFF92400E),
-    backgroundColor: Color(0xFFFEF3C7),
-  ),
-  _ActivityItem(
-    label: 'Bensin Pertama',
-    subtitle: 'Hari ini',
-    amount: '-Rp 500.000',
-    icon: Icons.local_gas_station,
-    iconColor: Color(0xFF1D4ED8),
-    backgroundColor: Color(0xFFDBEAFE),
-  ),
-];
+  final List<_ActivityItem> _activities = const [
+    _ActivityItem(
+      label: 'Qris Starbucek',
+      subtitle: 'Hari ini',
+      amount: '-Rp 45.000',
+      iconBgColor: Color.fromARGB(255, 255, 185, 100),
+      iconData: Icons.coffee,
+      iconColor: Color.fromARGB(255, 255, 134, 20),
+    ),
+    _ActivityItem(
+      label: 'Bensin Pertama',
+      subtitle: 'Hari ini',
+      amount: '-Rp 500.000',
+      iconBgColor: Color.fromARGB(255, 105, 195, 255),
+      iconData: Icons.local_gas_station,
+      iconColor: Color.fromARGB(255, 29, 63, 255),
+    ),
+  ];
 
   @override
   void initState() {
@@ -65,130 +65,165 @@ final List<_ActivityItem> _activities = const [
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
+        backgroundColor: const Color(0xFFF3F4F6),
+
+        appBar: AppBar(
+          backgroundColor: const Color.fromARGB(255, 21, 60, 167),
+          elevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'Kusaku',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Blue header ──
               Container(
                 width: double.infinity,
-                color: const Color(0xFF1D4ED8),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                color: const Color.fromARGB(255, 177, 198, 255),
                 child: Column(
                   children: [
-                    const Text(
-                      'Kusaku',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+
+                    // ── Purple thingy ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF7C3AED), Color.fromARGB(255, 186, 152, 241)],
+                            begin: Alignment.topCenter, // fixed gradasinya
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color.fromARGB(255, 10, 2, 31).withOpacity(0.3), width: 4.5),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Wallet icon + Total Saldo
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.25),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.account_balance_wallet_outlined,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Total Saldo',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              // Balance — TODO: replace with real balance from API
+                              const Text(
+                                'Rp -',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+
+                              // Divider between balance and buttons
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Divider(
+                                  color: Colors.white.withOpacity(0.3),
+                                  thickness: 1,
+                                  height: 1,
+                                ),
+                              ),
+
+                              // Quick action buttons
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _QuickAction(
+                                    icon: Icons.add,
+                                    label: 'Top Up',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) => const TopUpPage()),
+                                    ),
+                                  ),
+                                  _QuickAction(
+                                    icon: Icons.swap_horiz,
+                                    label: 'Transfer',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const TransferPage()),
+                                    ),
+                                  ),
+                                  _QuickAction(
+                                    icon: Icons.qr_code_scanner,
+                                    label: 'Qris Kita',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const QrisKitaPage()),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
 
-                    // Balance card
+                    // ── Dark blue promo strip ──
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED),
-                        borderRadius: BorderRadius.circular(16),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E3A8A),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.account_balance_wallet_outlined,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Total Saldo',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // TODO: replace with real balance from API
-                          const Text(
-                            'Rp -',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _QuickAction(
-                                icon: Icons.add,
-                                label: 'Top Up',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                      builder: (_) => const TopUpPage()),
-                                ),
-                              ),
-                              _QuickAction(
-                                icon: Icons.swap_horiz,
-                                label: 'Transfer',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                      builder: (_) => const TransferPage()),
-                                ),
-                              ),
-                              _QuickAction(
-                                icon: Icons.qr_code_scanner,
-                                label: 'Qris Kita',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                      builder: (_) => const QrisKitaPage()),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: const Text(
+                        '                                Top Up Kusaku sesering mungkin, raih total 67\n                                perak Kusaku points!', //what the hell
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w200,
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-
-              // ── Points promo strip ──
-              Container(
-                width: double.infinity,
-                color: const Color(0xFF1D4ED8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3B82F6),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    'Top Up Kusaku sesering mungkin, raih total 67 perak Kusaku points!',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
                 ),
               ),
 
@@ -281,10 +316,9 @@ final List<_ActivityItem> _activities = const [
                           ),
                         ),
                       ),
-                      ..._activities.asMap().entries.map((e) =>
-                          _ActivityTile(
-                              item: e.value,
-                              isLast: e.key == _activities.length - 1)),
+                      ..._activities.asMap().entries.map((e) => _ActivityTile(
+                          item: e.value,
+                          isLast: e.key == _activities.length - 1)),
                     ],
                   ),
                 ),
@@ -298,7 +332,7 @@ final List<_ActivityItem> _activities = const [
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: SizedBox(
-                    height: 160,
+                    height: 190,
                     child: PageView.builder(
                       controller: _carouselController,
                       physics: const NeverScrollableScrollPhysics(),
@@ -317,8 +351,7 @@ final List<_ActivityItem> _activities = const [
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(Icons.image_outlined,
-                                    size: 36,
-                                    color: Colors.grey.shade400),
+                                    size: 36, color: Colors.grey.shade400),
                                 const SizedBox(height: 6),
                                 Text(
                                   _bannerImages[index],
@@ -337,7 +370,7 @@ final List<_ActivityItem> _activities = const [
                 ),
               ),
 
-              // Dots
+              // Carousel dots
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -367,6 +400,7 @@ final List<_ActivityItem> _activities = const [
   }
 }
 
+// ── Quick action button ──
 class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -381,26 +415,30 @@ class _QuickAction extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
-          const SizedBox(height: 6),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
+// ── Activity tile ──
 class _ActivityTile extends StatelessWidget {
   final _ActivityItem item;
   final bool isLast;
@@ -411,23 +449,19 @@ class _ActivityTile extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
+              // Colored icon container
               Container(
-                width: 38,
-                height: 38,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: item.backgroundColor,
-                  borderRadius: BorderRadius.circular(10),
+                  color: item.iconBgColor,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  item.icon,
-                  color: item.iconColor,
-                  size: 20,
-                  ),
-                ),       
+                child: Icon(item.iconData, color: item.iconColor, size: 22),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -456,7 +490,7 @@ class _ActivityTile extends StatelessWidget {
           const Divider(
               height: 1,
               thickness: 0.5,
-              indent: 64,
+              indent: 68,
               color: Color(0xFFE5E7EB)),
       ],
     );
@@ -467,16 +501,15 @@ class _ActivityItem {
   final String label;
   final String subtitle;
   final String amount;
-  final IconData icon;
+  final Color iconBgColor;
+  final IconData iconData;
   final Color iconColor;
-  final Color backgroundColor;
-
   const _ActivityItem({
     required this.label,
     required this.subtitle,
     required this.amount,
-    required this.icon,
+    required this.iconBgColor,
+    required this.iconData,
     required this.iconColor,
-    required this.backgroundColor,
   });
 }
