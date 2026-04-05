@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Expense, Income, CategoryBudget
+from .models import Category, Expense, Income, CategoryBudget, Transfer
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -18,6 +18,7 @@ class CategoryBudgetSerializer(serializers.ModelSerializer):
 
 class ExpenseSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
+    category_icon = serializers.CharField(source='category.icon', read_only=True)
 
     class Meta:
         model = Expense
@@ -30,3 +31,9 @@ class IncomeSerializer(serializers.ModelSerializer):
         model = Income
         fields = '__all__'
         read_only_fields = ['user']
+
+class TransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transfer
+        fields = '__all__'
+        read_only_fields = ['sender', 'recipient', 'date']

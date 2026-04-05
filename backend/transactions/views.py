@@ -5,7 +5,7 @@ from rest_framework import status
 from django.db.models import Sum
 from django.db import transaction
 
-from .models import Category, Expense, Income, CategoryBudget
+from .models import Category, Expense, Income, CategoryBudget, Transfer
 from .serializers import (
     CategorySerializer,
     ExpenseSerializer,
@@ -13,6 +13,7 @@ from .serializers import (
     CategoryBudgetSerializer,
 )
 from kusakustamp.models import UserStamp
+from users.models import Account
 
 class CategoryListView(APIView):
 
@@ -93,7 +94,6 @@ class BudgetView(APIView):
             status=status.HTTP_200_OK
         )
 
-# views.py
 class BalanceView(APIView):
     def get(self, request, user_id):
         total_income = Income.objects.filter(user_id=user_id).aggregate(
@@ -103,6 +103,14 @@ class BalanceView(APIView):
         expenses = Expense.objects.filter(user_id=user_id)
         total_expense = sum(e.total_payment + e.transaction_fee for e in expenses)
 
+        sent_transfers = Transfer.objects.filter(sender_id=user_id).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        received_transfers = Transfer.objects.filter(recipient_id=user_id).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
         points_earned = Expense.objects.filter(user_id=user_id).aggregate(
             total=Sum('kusaku_points')
         )['total'] or 0
@@ -111,10 +119,12 @@ class BalanceView(APIView):
             total=Sum('points_used')
         )['total'] or 0
 
+        balance = total_income - total_expense - sent_transfers + received_transfers
+
         return Response({
             "total_income": total_income,
             "total_expense": total_expense,
-            "balance": total_income - total_expense,
+            "balance": balance,
             "kusaku_points": points_earned - points_spent,
         })
 
@@ -132,14 +142,104 @@ class ExpenseView(APIView):
 
 class IncomeView(APIView):
 
-    def get(self, request):
-        incomes = Income.objects.filter(user=request.user)
+    def get(self, request, user_id):
+        incomes = Income.objects.filter(user_id=user_id)
         return Response(IncomeSerializer(incomes, many=True).data)
 
-    def post(self, request):
+    def post(self, request, user_id):
         serializer = IncomeSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            serializer.save(user_id=user_id)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+class TransferView(APIView):
+
+    def post(self, request, user_id):
+        sender_phone = request.data.get('sender_phone')
+        recipient_phone = request.data.get('recipient_phone')
+        amount = request.data.get('amount')
+        notes = request.data.get('notes', '')
+
+        # Validate fields
+        if not all([sender_phone, recipient_phone, amount]):
+            return Response(
+                {"error": "sender_phone, recipient_phone, dan amount wajib diisi"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate sender matches user_id
+        try:
+            sender = Account.objects.get(id=user_id, phone_number=sender_phone)
+        except Account.DoesNotExist:
+            return Response(
+                {"error": "Nomor pengirim tidak valid"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Find recipient
+        try:
+            recipient = Account.objects.get(phone_number=recipient_phone)
+        except Account.DoesNotExist:
+            return Response(
+                {"error": "Nomor penerima tidak ditemukan"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if sender == recipient:
+            return Response(
+                {"error": "Tidak bisa transfer ke diri sendiri"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check sender balance
+        total_income = Income.objects.filter(user=sender).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        expenses = Expense.objects.filter(user=sender)
+        total_expense = sum(e.total_payment + e.transaction_fee for e in expenses)
+
+        sent_transfers = Transfer.objects.filter(sender=sender).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        received_transfers = Transfer.objects.filter(recipient=sender).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        balance = total_income - total_expense - sent_transfers + received_transfers
+
+        if balance < float(amount):
+            return Response(
+                {
+                    "error": "Saldo tidak cukup",
+                    "balance": balance,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create transfer record
+        with transaction.atomic():
+            transfer = Transfer.objects.create(
+                sender=sender,
+                recipient=recipient,
+                amount=amount,
+                notes=notes,
+            )
+
+            # Add as income for recipient
+            Income.objects.create(
+                user=recipient,
+                amount=amount,
+                title=f"Transfer dari {sender.phone_number}",
+                description=notes,
+            )
+
+        return Response({
+            "message": "Transfer berhasil",
+            "transfer_id": transfer.id,
+            "amount": amount,
+            "recipient": recipient.phone_number,
+            "remaining_balance": balance - float(amount),
+        }, status=status.HTTP_201_CREATED)

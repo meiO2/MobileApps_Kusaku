@@ -5,7 +5,8 @@ from .views import (
     BudgetView,
     BalanceView,
     ExpenseView,
-    IncomeView
+    IncomeView,
+    TransferView
 )
 
 urlpatterns = [
@@ -14,7 +15,8 @@ urlpatterns = [
 
     path('budget/', BudgetView.as_view()),
     path('balance/<int:user_id>/', BalanceView.as_view()),
-    
+
     path('expenses/<int:user_id>/', ExpenseView.as_view()),
-    path('incomes/', IncomeView.as_view()),
+    path('incomes/<int:user_id>/', IncomeView.as_view()),
+    path('transfer/<int:user_id>/', TransferView.as_view()),
 ]

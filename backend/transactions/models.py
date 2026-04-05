@@ -10,6 +10,7 @@ class Category(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories')
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
+    icon = models.CharField(max_length=100, default='category')
 
     class Meta:
         unique_together = ('user', 'name')
@@ -67,3 +68,16 @@ class Income(models.Model):
 
     def __str__(self):
         return self.title
+    
+class Transfer(models.Model):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_transfers')
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_transfers')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    notes = models.TextField(blank=True)
+    date = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.sender} → {self.recipient} : {self.amount}"

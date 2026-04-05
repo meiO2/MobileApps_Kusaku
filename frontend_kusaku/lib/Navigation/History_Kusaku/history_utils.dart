@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_kusaku/Navigation/History_Kusaku/history_models.dart';
+import 'package:frontend_kusaku/utils/category_icon.dart';
 
 String tabLabel(HistoryTab tab) {
   switch (tab) {
@@ -75,31 +76,17 @@ String monthName(int month) {
     'November',
     'Desember',
   ];
-
   return names[month - 1];
 }
 
 IconData resolveHistoryIcon(HistoryTransaction transaction) {
-  switch (transaction.category?.toLowerCase()) {
-    case 'qris':
-      return Icons.qr_code_rounded;
-    case 'fuel':
-      return Icons.local_gas_station_outlined;
-    case 'transfer':
-      return transaction.isExpense
-          ? Icons.account_balance_wallet_outlined
-          : Icons.south_west_rounded;
-    case 'coffee':
-      return Icons.local_cafe_outlined;
-    case 'transport':
-      return Icons.directions_bus_outlined;
-    case 'gift':
-      return Icons.favorite_border;
-    default:
-      return transaction.isExpense
-          ? Icons.arrow_upward_rounded
-          : Icons.arrow_downward_rounded;
+  if (transaction.category != null && transaction.category!.isNotEmpty) {
+    return categoryIcon(transaction.category);
   }
+
+  return transaction.isExpense
+      ? Icons.arrow_upward_rounded
+      : Icons.arrow_downward_rounded;
 }
 
 List<HistorySection> buildHistorySections({
