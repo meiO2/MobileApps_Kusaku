@@ -22,13 +22,14 @@ class Category(models.Model):
 class CategoryBudget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budgets')
+
     percentage = models.FloatField(default=0)
+
+    allocated_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    used_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
         unique_together = ('user', 'category')
-
-    def __str__(self):
-        return f"{self.category.name} - {self.percentage}%"
 
 
 class Expense(models.Model):

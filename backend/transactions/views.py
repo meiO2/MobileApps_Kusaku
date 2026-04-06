@@ -34,11 +34,11 @@ class CategoryUpdateView(APIView):
 
 class BudgetView(APIView):
 
-    def get(self, request):
-        budgets = CategoryBudget.objects.filter(user=request.user)
+    def get(self, request, user_id):
+        budgets = CategoryBudget.objects.filter(user_id=user_id)
         return Response(CategoryBudgetSerializer(budgets, many=True).data)
 
-    def put(self, request):
+    def put(self, request, user_id):  # ✅ added user_id
         data = request.data
 
         if not isinstance(data, list):
@@ -53,41 +53,35 @@ class BudgetView(APIView):
                 {"error": "Total percentage must be between 0 and 100"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        total_income = Income.objects.filter(user_id=user_id).aggregate(
+                    total=Sum('amount')
+                )['total'] or 0
 
         with transaction.atomic():
+            budgets = []
+
             for item in data:
-                category_id = item.get('category_id')
+                category = get_object_or_404(Category, id=item['category_id'], user_id=user_id)
+                budget = get_object_or_404(CategoryBudget, user_id=user_id, category=category)
 
-                if not category_id:
-                    return Response(
-                        {"error": "category_id is required"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                percentage = item.get("percentage", budget.percentage)
+                budget.percentage = percentage
 
-                category = get_object_or_404(
-                    Category,
-                    id=category_id,
-                    user=request.user
-                )
+                budget.allocated_amount = (percentage / 100) * total_income
 
-                if "name" in item:
-                    category.name = item["name"]
+                budgets.append(budget)
 
-                if "is_active" in item:
-                    category.is_active = item["is_active"]
+            total_allocated = sum(b.allocated_amount for b in budgets)
+            leftover = total_income - total_allocated
 
-                category.save()
+            if leftover > 0:
+                extra_per_budget = leftover / len(budgets)
+                for b in budgets:
+                    b.allocated_amount += extra_per_budget
 
-                budget = get_object_or_404(
-                    CategoryBudget,
-                    user=request.user,
-                    category=category
-                )
-
-                if "percentage" in item:
-                    budget.percentage = item["percentage"]
-
-                budget.save()
+            for b in budgets:
+                b.save()
 
         return Response(
             {"message": "Budget updated successfully"},
@@ -136,8 +130,19 @@ class ExpenseView(APIView):
     def post(self, request, user_id):
         serializer = ExpenseSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user_id=user_id)
+            expense = serializer.save(user_id=user_id)
+
+            budget = CategoryBudget.objects.get(
+                user_id=user_id,
+                category=expense.category
+            )
+
+            total_spent = expense.total_payment + expense.transaction_fee
+            budget.used_amount += total_spent
+            budget.save()
+
             return Response(serializer.data, status=201)
+
         return Response(serializer.errors, status=400)
 
 class IncomeView(APIView):

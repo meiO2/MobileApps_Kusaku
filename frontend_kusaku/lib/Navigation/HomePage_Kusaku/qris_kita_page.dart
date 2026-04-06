@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 class QrisKitaPage extends StatelessWidget {
-  final int userId; // 🔥 wajib kirim dari user login
+  final int userId;
 
   const QrisKitaPage({
     super.key,

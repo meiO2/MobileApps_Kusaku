@@ -1,38 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend_kusaku/Navigation/Finance_Kusaku/chat_si_pintar_page.dart';
+import 'package:frontend_kusaku/services/finance_service.dart';
 
-class FinancePage extends StatelessWidget {
+class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
 
-  // TODO: semangat masukkin APInya
-  static const String _bulanLabel = 'Bulan maret tersisa 29 hari lagi';
-  static const String _weekLabel = 'Februari 2026';
+  @override
+  State<FinancePage> createState() => _FinancePageState();
+}
 
-  static const List<_CalendarDay> _weekDays = [
-    _CalendarDay(day: 'Sun', date: 22),
-    _CalendarDay(day: 'Mon', date: 23),
-    _CalendarDay(day: 'Tue', date: 24),
-    _CalendarDay(day: 'Wed', date: 25),
-    _CalendarDay(day: 'Thu', date: 26),
-    _CalendarDay(day: 'Fri', date: 27),
-    _CalendarDay(day: 'Sat', date: 28, isToday: true), // probably ask GPT about this, karna ini kan cmn keep track of day and not calender
-  ];
+class _FinancePageState extends State<FinancePage> {
+  double _balance = 0;
+  double _totalIncome = 0;
+  List<dynamic> _budgets = [];
+  bool _isLoading = true;
 
-  // TODO: replace with real category data from API lol
-  static const List<_BudgetCategory> _categories = [
-    _BudgetCategory(icon: Icons.home_outlined, iconColor: Color.fromARGB(255, 70, 119, 255), label: 'Kebutuhan Rumah', sisaBulanIni: 6000000),
-    _BudgetCategory(icon: Icons.restaurant_outlined, iconColor: Color.fromARGB(255, 70, 119, 255), label: 'Makan & Minum', sisaBulanIni: 3000000),
-    _BudgetCategory(icon: Icons.directions_car_outlined, iconColor: Color.fromARGB(255, 70, 119, 255), label: 'Transportasi', sisaBulanIni: 500000),
-    _BudgetCategory(icon: Icons.trending_up_outlined, iconColor: Color.fromARGB(255, 70, 119, 255), label: 'Investasi', sisaBulanIni: 2750000),
-    _BudgetCategory(icon: Icons.savings_outlined, iconColor: Color.fromARGB(255, 70, 119, 255), label: 'Tabungan', sisaBulanIni: 2750000),
-  ];
+  static const Map<String, IconData> _iconMap = {
+    'Kebutuhan Rumah': Icons.home_outlined,
+    'Makan & Minum':   Icons.restaurant_outlined,
+    'Transportasi':    Icons.directions_car_outlined,
+    'Investasi':       Icons.trending_up_outlined,
+    'Tabungan':        Icons.savings_outlined,
+    'Hiburan':         Icons.movie_outlined,
+    'Tagihan':         Icons.receipt_outlined,
+    'Kesehatan':       Icons.local_hospital_outlined,
+    'Pendidikan':      Icons.school_outlined,
+  };
 
-  String _formatRp(int amount) {
-    return 'Rp ${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) return;
+
+      final results = await Future.wait([
+        FinanceService.fetchBalance(userId),
+        FinanceService.fetchBudgets(userId),
+      ]);
+
+      final balanceData = results[0] as Map<String, dynamic>;
+      final budgetData  = results[1] as List<dynamic>;
+
+      setState(() {
+        _balance     = (balanceData['balance']      as num).toDouble();
+        _totalIncome = (balanceData['total_income'] as num).toDouble();
+        _budgets = budgetData
+          .where((b) => (b['percentage'] as num) > 0)
+          .toList();
+        _isLoading   = false;
+      });
+    } catch (e) {
+      print('Error loading finance data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  String _formatRp(double amount) {
+    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    )}';
+  }
+
+  String _getDaysRemainingLabel() {
+    final now = DateTime.now();
+    final lastDay = DateTime(now.year, now.month + 1, 0);
+    final remaining = lastDay.difference(now).inDays;
+    final monthName = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ][now.month];
+    return 'Bulan $monthName tersisa $remaining hari lagi';
+  }
+
+  String _getMonthYearLabel() {
+    final now = DateTime.now();
+    final monthName = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ][now.month];
+    return '$monthName ${now.year}';
+  }
+
+  List<_CalendarDay> _getCurrentWeekDays() {
+    final now = DateTime.now();
+    // Find the Sunday of the current week
+    final startOfWeek = now.subtract(Duration(days: now.weekday % 7));
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return List.generate(7, (i) {
+      final day = startOfWeek.add(Duration(days: i));
+      return _CalendarDay(
+        day: dayLabels[i],
+        date: day.day,
+        isToday: day.day == now.day &&
+                 day.month == now.month &&
+                 day.year == now.year,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final weekDays = _getCurrentWeekDays();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
 
@@ -84,7 +162,6 @@ class FinancePage extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── Text section ──
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,9 +177,10 @@ class FinancePage extends StatelessWidget {
 
                                 const SizedBox(height: 8),
 
-                                const Text(
-                                  'Rp -', // replace with API yak
-                                  style: TextStyle(
+                                // ✅ Now shows real balance from API
+                                Text(
+                                  _isLoading ? 'Memuat...' : _formatRp(_balance),
+                                  style: const TextStyle(
                                     color: Color(0xFF1E3A8A),
                                     fontSize: 24,
                                     fontWeight: FontWeight.w800,
@@ -120,8 +198,9 @@ class FinancePage extends StatelessWidget {
 
                                 const SizedBox(height: 10),
 
+                                // ✅ Now computed dynamically
                                 Text(
-                                  _bulanLabel,
+                                  _getDaysRemainingLabel(),
                                   style: const TextStyle(
                                     color: Color(0xFF1E3A8A),
                                     fontSize: 14,
@@ -134,7 +213,6 @@ class FinancePage extends StatelessWidget {
 
                           const SizedBox(width: 12),
 
-                          // ── Icon / Image ──
                           Align(
                             alignment: Alignment.topRight,
                             child: Container(
@@ -142,7 +220,7 @@ class FinancePage extends StatelessWidget {
                               height: 60,
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 208, 55, 255).withOpacity(0.67), //67 67 67
+                                color: const Color.fromARGB(255, 208, 55, 255).withOpacity(0.67),
                                 shape: BoxShape.circle,
                               ),
                               child: ClipOval(
@@ -160,37 +238,64 @@ class FinancePage extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // ── Static weekly calendar (display only) ──
-                  Text(_weekLabel,
-                      style: 
-                      const TextStyle(
-                          color: Color.fromARGB(255, 109, 143, 255), fontSize: 18, fontWeight: FontWeight.w800)),
+                  // ✅ Now computed dynamically
+                  Text(
+                    _getMonthYearLabel(),
+                    style: const TextStyle(
+                      color: Color.fromARGB(255, 109, 143, 255),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 8),
+
+                  // ✅ Calendar now tracks the real current week
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: _weekDays.map((d) => _DayCell(day: d)).toList(),
+                    children: weekDays.map((d) => _DayCell(day: d)).toList(),
                   ),
                 ],
               ),
             ),
 
             // ── Category list ──
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                itemCount: _categories.length,
-                itemBuilder: (context, i) => _CategoryTile(
-                  category: _categories[i],
-                  formatRp: _formatRp,
-                ),
-              ),
-            ),
+            _isLoading
+              ? const Expanded(
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1D4ED8))),
+                )
+              : Expanded(
+                  child: _budgets.isEmpty
+                      ? _EmptyBudgetState(onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
+                          );
+                        })
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          itemCount: _budgets.length,
+                          itemBuilder: (context, i) {
+                            final budget = _budgets[i];
+                            final categoryName = budget['category']['name'] as String;
+                            final remaining = (budget['remaining_amount'] as num).toDouble();
+
+                            return _CategoryTile(
+                              icon: _iconMap[categoryName] ?? Icons.category_outlined,
+                              iconColor: const Color(0xFF4677FF),
+                              label: categoryName,
+                              sisaBulanIni: remaining,
+                              formatRp: _formatRp,
+                            );
+                          },
+                        ),
+                )
           ],
         ),
       ),
     );
   }
 }
+
+// ── Supporting widgets & data classes ──────────────────────────────────────
 
 class _DayCell extends StatelessWidget {
   final _CalendarDay day;
@@ -200,10 +305,14 @@ class _DayCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(day.day,
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600,
-                color: day.isToday ? Color(0xFF1E3A8A) : Color(0xFF1E3A8A))),
+        Text(
+          day.day,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1E3A8A),
+          ),
+        ),
         const SizedBox(height: 4),
         Container(
           width: 65,
@@ -219,9 +328,8 @@ class _DayCell extends StatelessWidget {
               '${day.date}',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight:
-                    day.isToday ? FontWeight.w700 : FontWeight.w800,
-                color: Color(0xFF1E3A8A),
+                fontWeight: day.isToday ? FontWeight.w700 : FontWeight.w800,
+                color: const Color(0xFF1E3A8A),
               ),
             ),
           ),
@@ -231,10 +339,21 @@ class _DayCell extends StatelessWidget {
   }
 }
 
+// ✅ Rewritten to accept individual fields instead of _BudgetCategory object
 class _CategoryTile extends StatelessWidget {
-  final _BudgetCategory category;
-  final String Function(int) formatRp;
-  const _CategoryTile({required this.category, required this.formatRp});
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final double sisaBulanIni;
+  final String Function(double) formatRp;
+
+  const _CategoryTile({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.sisaBulanIni,
+    required this.formatRp,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -258,32 +377,39 @@ class _CategoryTile extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: category.iconColor.withOpacity(0.12),
+              color: iconColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(category.icon, color: category.iconColor, size: 22),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(category.label,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111827))),
-                const Text('Sisa bulan ini',
-                    style: TextStyle(
-                        fontSize: 11, color: Color(0xFF9CA3AF))),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const Text(
+                  'Sisa bulan ini',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
+                ),
               ],
             ),
           ),
-          Text(formatRp(category.sisaBulanIni),
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF111827))),
+          Text(
+            formatRp(sisaBulanIni),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111827),
+            ),
+          ),
         ],
       ),
     );
@@ -294,19 +420,64 @@ class _CalendarDay {
   final String day;
   final int date;
   final bool isToday;
-  const _CalendarDay(
-      {required this.day, required this.date, this.isToday = false});
+  const _CalendarDay({
+    required this.day,
+    required this.date,
+    this.isToday = false,
+  });
 }
 
-class _BudgetCategory {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final int sisaBulanIni;
-  const _BudgetCategory({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.sisaBulanIni,
-  });
+class _EmptyBudgetState extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _EmptyBudgetState({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.account_balance_wallet_outlined,
+              size: 64,
+              color: Color(0xFF9CA3AF),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Kamu belum mengatur budget',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Yuk atur budget kamu dulu supaya pengeluaran lebih terkontrol!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Atur Sekarang'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

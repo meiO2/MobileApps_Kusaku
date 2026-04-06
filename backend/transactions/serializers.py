@@ -11,9 +11,21 @@ class CategorySerializer(serializers.ModelSerializer):
 class CategoryBudgetSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
 
+    remaining_amount = serializers.SerializerMethodField()
+
     class Meta:
         model = CategoryBudget
-        fields = ['id', 'category', 'percentage']
+        fields = [
+            'id',
+            'category',
+            'percentage',
+            'allocated_amount',
+            'used_amount',
+            'remaining_amount'
+        ]
+
+    def get_remaining_amount(self, obj):
+        return obj.allocated_amount - obj.used_amount
 
 
 class ExpenseSerializer(serializers.ModelSerializer):

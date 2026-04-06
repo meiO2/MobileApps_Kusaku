@@ -43,7 +43,7 @@ dependencies:
   local_auth: ^2.3.0
 
   qr_flutter: ^4.1.0
-  http: ^1.2.0
+  mobile_scanner: ^3.5.5
 
 dev_dependencies:
   flutter_test:

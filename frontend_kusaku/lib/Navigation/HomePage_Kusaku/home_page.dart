@@ -4,6 +4,13 @@ import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/topup_page.dart';
 import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
 import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/qris_kita_page.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import '../../config/api_config.dart';
+
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -12,6 +19,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int? _userId;
+  int? balance;
+  bool isLoadingBalance = true;
+
+  final formatter = NumberFormat.currency(
+    locale: 'id_ID',
+    symbol: 'Rp ',
+    decimalDigits: 0,
+  );
+
   final PageController _carouselController = PageController();
   int _currentCarouselIndex = 0;
   Timer? _carouselTimer;
@@ -44,6 +61,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    _initData();
+
     _carouselTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       final next = (_currentCarouselIndex + 1) % _bannerImages.length;
@@ -53,6 +73,41 @@ class _HomePageState extends State<HomePage> {
         curve: Curves.easeInOut,
       );
     });
+  }
+
+  Future<void> _initData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+
+    if (userId == null) {
+      print("User ID not found");
+      return;
+    }
+
+    _userId = userId;
+    await fetchBalance(userId);
+  }
+
+  Future<void> fetchBalance(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}balance/$userId/'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          balance = data['balance'];
+          isLoadingBalance = false;
+        });
+      } else {
+        setState(() => isLoadingBalance = false);
+      }
+    } catch (e) {
+      print("Error: $e");
+      setState(() => isLoadingBalance = false);
+    }
   }
 
   @override
@@ -140,10 +195,11 @@ class _HomePageState extends State<HomePage> {
 
                               const SizedBox(height: 10),
 
-                              // Balance — TODO: replace with real balance from API
-                              const Text(
-                                'Rp -',
-                                style: TextStyle(
+                              Text(
+                                isLoadingBalance
+                                    ? 'Loading...'
+                                    : formatter.format(balance ?? 0),
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800,
@@ -187,12 +243,16 @@ class _HomePageState extends State<HomePage> {
                                   _QuickAction(
                                     icon: Icons.qr_code_scanner,
                                     label: 'Qris Kita',
-                                    onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (_) =>
-                                              const QrisKitaPage()),
-                                    ),
-                                  ),
+                                    onTap: () {
+                                      if (_userId != null) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => QrisKitaPage(userId: _userId!),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  )
                                 ],
                               ),
                             ],
@@ -316,9 +376,13 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      ..._activities.asMap().entries.map((e) => _ActivityTile(
-                          item: e.value,
-                          isLast: e.key == _activities.length - 1)),
+                      ...List.generate(
+                        _activities.length,
+                        (index) => _ActivityTile(
+                          item: _activities[index],
+                          isLast: index == _activities.length - 1,
+                        ),
+                      ),
                     ],
                   ),
                 ),
