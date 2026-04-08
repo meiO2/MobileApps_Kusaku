@@ -250,26 +250,15 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   Future<void> _openPaymentConfirmation(Map<String, dynamic> body) async {
-    final amount = _parseAmount(body['amount']);
-    final transactionDate = DateTime.tryParse((body['transaction_date'] ?? '').toString()) ?? DateTime.now();
+    final remainingBalance = _parseAmount(body['remaining_balance']);
 
-    final data = PaymentConfirmationData(
-      transactionId: (body['id'] ?? body['qris_number'] ?? '').toString(),
-      methodType: PaymentMethodType.qris,
-      methodLabel: 'Pembayaran Qris',
-      amount: amount,
-      transactionFee: 0,
-      remainingBalance: _parseAmount(body['remaining_balance']),
-      merchant: PaymentMerchantInfo(
-        name: (body['merchant_name'] ?? 'Merchant').toString(),
-        accountName: (body['merchant_PT'] ?? '-').toString(),
-        transactedAt: transactionDate,
-      ),
-      categories: const [
+    final data = PaymentConfirmationData.fromJson(
+      body,
+      categories: [
         PaymentCategoryData(
           id: 'food-drink',
           name: 'Makan & Minum',
-          remainingAmount: 0,
+          remainingAmount: remainingBalance,
           icon: Icons.fastfood_rounded,
         ),
       ],

@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from django.utils import timezone
 from .models import Qris
 from .serializers import QrisSerializer, QrisScanSerializer
 
@@ -61,4 +62,27 @@ class QrisScanView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        return Response(QrisSerializer(qris).data)
+        qris_data = QrisSerializer(qris).data
+        scanned_at = timezone.localtime(timezone.now())
+
+        response_data = {
+            **qris_data,
+            'transaction_id': str(qris.id),
+            'method_type': 'qris',
+            'method_label': 'Pembayaran Qris',
+            'payment_method_label': 'Pembayaran Qris',
+            'transaction_fee': 0,
+            'remaining_balance': 0,
+            'success_title': 'Payment Successful!',
+            'success_method_label': 'Pembayaran Qris',
+            'merchant': {
+                'name': qris.merchant_name,
+                'account_name': qris.merchant_PT,
+                'transacted_at': scanned_at.isoformat(),
+                'transaction_date': scanned_at.date().isoformat(),
+                'transaction_time': scanned_at.time().strftime('%H:%M:%S'),
+                'logo_text': qris.merchant_name[:1].upper() if qris.merchant_name else 'M',
+            },
+        }
+
+        return Response(response_data)

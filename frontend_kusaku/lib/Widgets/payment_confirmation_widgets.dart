@@ -51,11 +51,12 @@ String formatPaymentDateTime(DateTime value) {
     'Desember',
   ];
 
-  final day = value.day.toString();
-  final month = months[value.month - 1];
-  final hour = value.hour.toString().padLeft(2, '0');
-  final minute = value.minute.toString().padLeft(2, '0');
-  return '$day $month ${value.year} | $hour.$minute WIB';
+  final localValue = value.toLocal();
+  final day = localValue.day.toString();
+  final month = months[localValue.month - 1];
+  final hour = localValue.hour.toString().padLeft(2, '0');
+  final minute = localValue.minute.toString().padLeft(2, '0');
+  return '$day $month ${localValue.year} | $hour.$minute WIB';
 }
 
 IconData paymentMethodIcon(PaymentMethodType type) {
