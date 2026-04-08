@@ -24,9 +24,4 @@ class QrisSerializer(serializers.ModelSerializer):
 
 
 class QrisScanSerializer(serializers.Serializer):
-    qris_number = serializers.CharField(max_length=12, min_length=12)
-
-    def validate_qris_number(self, value):
-        if not value.isdigit() or len(value) != 12:
-            raise serializers.ValidationError('qris_number harus 12 digit angka, contoh: 011006081106')
-        return value
+    qris_number = serializers.CharField(max_length=512, trim_whitespace=True)

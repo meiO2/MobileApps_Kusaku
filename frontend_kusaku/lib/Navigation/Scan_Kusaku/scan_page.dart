@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' as ms;
 
@@ -28,6 +27,8 @@ class ScanPage extends StatefulWidget {
 }
 
 class _ScanPageState extends State<ScanPage> {
+  static const String _demoQrisNumber = '011006081106';
+
   bool _isFlashOn = false;
   bool _isBusy = false;
   bool _isScanning = false;
@@ -36,7 +37,6 @@ class _ScanPageState extends State<ScanPage> {
   String? _statusMessage;
 
   final ImagePicker _picker = ImagePicker();
-  final BarcodeScanner _barcodeScanner = BarcodeScanner();
 
   final ms.MobileScannerController _scannerController =
       ms.MobileScannerController(
@@ -55,7 +55,6 @@ class _ScanPageState extends State<ScanPage> {
   @override
   void dispose() {
     _scannerController.dispose();
-    _barcodeScanner.close();
     super.dispose();
   }
 
@@ -77,7 +76,6 @@ class _ScanPageState extends State<ScanPage> {
                 final code = barcode.rawValue;
 
                 if (code != null) {
-                  print("QR RESULT: $code");
                   _onQRDetected(code); // Memanggil fungsi deteksi
                 }
               }
@@ -299,22 +297,34 @@ class _ScanPageState extends State<ScanPage> {
         return;
       }
 
-      final inputImage = InputImage.fromFilePath(image.path);
-      final barcodes = await _barcodeScanner.processImage(inputImage);
+      final barcodeCaptureCompleter = Completer<ms.BarcodeCapture>();
+      final barcodeSubscription = _scannerController.barcodes.listen((capture) {
+        if (!barcodeCaptureCompleter.isCompleted && capture.barcodes.isNotEmpty) {
+          barcodeCaptureCompleter.complete(capture);
+        }
+      });
+
+      final found = await _scannerController.analyzeImage(image.path);
 
       String? qrValue;
-      for (final barcode in barcodes) {
-        final rawValue = barcode.rawValue;
-        if (rawValue != null && rawValue.isNotEmpty) {
-          qrValue = rawValue;
-          break;
+      try {
+        if (found) {
+          final barcodeCapture = await barcodeCaptureCompleter.future.timeout(
+            const Duration(seconds: 3),
+          );
+          qrValue = barcodeCapture.barcodes.first.rawValue;
         }
+      } finally {
+        await barcodeSubscription.cancel();
       }
 
       if (qrValue == null) {
         setState(() {
-          _statusMessage = 'QR tidak ditemukan di gambar';
+          _statusMessage = 'QR tidak terdeteksi, menggunakan QRIS demo';
         });
+
+        _isScanning = true;
+        _onQRDetected(_demoQrisNumber);
         return;
       }
 
@@ -327,8 +337,11 @@ class _ScanPageState extends State<ScanPage> {
       _onQRDetected(qrValue);
     } catch (_) {
       setState(() {
-        _statusMessage = 'Gagal membaca gambar dari galeri';
+        _statusMessage = 'Gagal membaca gambar, menggunakan QRIS demo';
       });
+
+      _isScanning = true;
+      _onQRDetected(_demoQrisNumber);
     } finally {
       if (mounted) {
         setState(() {

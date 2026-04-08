@@ -7,6 +7,7 @@ from .models import Qris
 from .serializers import QrisSerializer, QrisScanSerializer
 
 User = get_user_model()
+DEMO_QRIS_NUMBER = '011006081106'
 
 
 class GenerateQRView(APIView):
@@ -51,9 +52,13 @@ class QrisScanView(APIView):
         if not scan_serializer.is_valid():
             return Response(scan_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        qris_number = scan_serializer.validated_data['qris_number']
-        qris = Qris.objects.filter(qris_number=qris_number).first()
+        # 1 fix qris_number untuk kita demo aja mingdep
+        qris = Qris.objects.filter(qris_number=DEMO_QRIS_NUMBER).first()
+
         if not qris:
-            return Response({'error': 'QRIS tidak valid atau tidak terdaftar'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': f'QRIS demo {DEMO_QRIS_NUMBER} belum ada di admin'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         return Response(QrisSerializer(qris).data)
