@@ -1,8 +1,6 @@
 from django.urls import path
 from .views import GenerateQRView, ResolveQRView
 from .views import QrisListCreateView, QrisDetailView, QrisScanView
-from .models import Qris
-from .serializers import QrisSerializer
 
 urlpatterns = [
     path('generate/', GenerateQRView.as_view()),

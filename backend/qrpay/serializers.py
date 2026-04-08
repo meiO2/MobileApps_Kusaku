@@ -4,6 +4,11 @@ from .models import Qris
 
 
 class QrisSerializer(serializers.ModelSerializer):
+    def validate_qris_number(self, value):
+        if not value.isdigit() or len(value) != 12:
+            raise serializers.ValidationError('qris_number harus 12 digit angka, contoh: 011006081106')
+        return value
+
     class Meta:
         model = Qris
         fields = [
@@ -15,4 +20,13 @@ class QrisSerializer(serializers.ModelSerializer):
             'transaction_time',
             'amount',
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'transaction_date', 'transaction_time']
+
+
+class QrisScanSerializer(serializers.Serializer):
+    qris_number = serializers.CharField(max_length=12, min_length=12)
+
+    def validate_qris_number(self, value):
+        if not value.isdigit() or len(value) != 12:
+            raise serializers.ValidationError('qris_number harus 12 digit angka, contoh: 011006081106')
+        return value
