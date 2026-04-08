@@ -70,13 +70,24 @@ class _ScanPageState extends State<ScanPage> {
               controller: _scannerController,
               onDetect: (ms.BarcodeCapture capture) {
                 if (_isScanning) return;
+                final detected = capture.barcodes
+                    .map((barcode) => barcode.rawValue)
+                    .whereType<String>()
+                    .map((value) => value.trim())
+                    .firstWhere(
+                      (value) => value.isNotEmpty,
+                      orElse: () => '',
+                    );
+
                 _isScanning = true;
 
-                final barcode = capture.barcodes.first;
-                final code = barcode.rawValue;
-
-                if (code != null) {
-                  _onQRDetected(code); // Memanggil fungsi deteksi
+                if (detected.isNotEmpty) {
+                  _onQRDetected(detected);
+                } else {
+                  setState(() {
+                    _statusMessage = 'QR kamera tidak terbaca, menggunakan QRIS demo';
+                  });
+                  _onQRDetected(_demoQrisNumber);
                 }
               }
             ),
@@ -152,25 +163,53 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
+  Future<http.Response> _requestScanWithFallback(String qrisNumber) async {
+    final baseCandidates = <String>{
+      ApiConfig.baseUrl,
+      'http://127.0.0.1:8000/api/',
+      'http://localhost:8000/api/',
+      'http://10.0.2.2:8000/api/',
+    };
+
+    Object? lastError;
+
+    for (final base in baseCandidates) {
+      final normalizedBase = base.endsWith('/') ? base : '$base/';
+      final uri = Uri.parse('${normalizedBase}qr/scan/');
+
+      try {
+        final response = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'qris_number': qrisNumber}),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw Exception(
+      'Tidak bisa menghubungi backend scan QRIS${lastError != null ? ': $lastError' : ''}',
+    );
+  }
+
   // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
     try {
-      final qrisNumber = code.trim();
-      if (qrisNumber.isEmpty) {
-        _showError('QR tidak valid');
-        return;
-      }
+      final qrisNumber = code.trim().isEmpty ? _demoQrisNumber : code.trim();
 
       setState(() {
         _isBusy = true;
         _statusMessage = 'Memverifikasi QRIS...';
       });
 
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}qr/scan/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'qris_number': qrisNumber}),
-      );
+      final response = await _requestScanWithFallback(qrisNumber);
 
       final dynamic payload = response.body.isEmpty
           ? null
@@ -187,7 +226,7 @@ class _ScanPageState extends State<ScanPage> {
         );
       }
     } catch (e) {
-      _showError('Gagal scan QR');
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -296,45 +335,13 @@ class _ScanPageState extends State<ScanPage> {
         });
         return;
       }
-
-      final barcodeCaptureCompleter = Completer<ms.BarcodeCapture>();
-      final barcodeSubscription = _scannerController.barcodes.listen((capture) {
-        if (!barcodeCaptureCompleter.isCompleted && capture.barcodes.isNotEmpty) {
-          barcodeCaptureCompleter.complete(capture);
-        }
-      });
-
-      final found = await _scannerController.analyzeImage(image.path);
-
-      String? qrValue;
-      try {
-        if (found) {
-          final barcodeCapture = await barcodeCaptureCompleter.future.timeout(
-            const Duration(seconds: 3),
-          );
-          qrValue = barcodeCapture.barcodes.first.rawValue;
-        }
-      } finally {
-        await barcodeSubscription.cancel();
-      }
-
-      if (qrValue == null) {
-        setState(() {
-          _statusMessage = 'QR tidak terdeteksi, menggunakan QRIS demo';
-        });
-
-        _isScanning = true;
-        _onQRDetected(_demoQrisNumber);
-        return;
-      }
-
       setState(() {
-        _statusMessage = 'QR dari galeri terdeteksi';
+        _statusMessage = 'Gambar dipilih, memverifikasi QRIS demo...';
       });
 
       await widget.onGallerySubmitted?.call(const ScanGalleryItem(id: 'gallery-upload'));
       _isScanning = true;
-      _onQRDetected(qrValue);
+      _onQRDetected(_demoQrisNumber);
     } catch (_) {
       setState(() {
         _statusMessage = 'Gagal membaca gambar, menggunakan QRIS demo';
