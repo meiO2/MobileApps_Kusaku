@@ -1,9 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/topup_pulsa_page.dart';
 import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/topup_store_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class TopUpPage extends StatelessWidget {
+class TopUpPage extends StatefulWidget {
   const TopUpPage({super.key});
+
+  @override
+  State<TopUpPage> createState() => _TopUpPageState();
+}
+
+class _TopUpPageState extends State<TopUpPage> {
+  int? _userId;
+  String _kodeKusaku = '-';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userId = prefs.getInt('user_id');
+      _kodeKusaku = prefs.getString('phone_number') ?? '-';
+    });
+  }
+
+  void _navigate(Widget page) {
+    if (_userId == null) return; // not loaded yet, do nothing
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +54,9 @@ class TopUpPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            // TODO: replace with real user Kode Kusaku from session
-            const Text(
-              'Kode Kusaku: 081234567890',
-              style: TextStyle(
+            Text(
+              'Kode Kusaku: $_kodeKusaku',
+              style: const TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 22),
@@ -41,46 +68,38 @@ class TopUpPage extends StatelessWidget {
                 color: const Color(0xFF1D4ED8),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _TopUpMethod(
-                    imagePath: 'assets/images/topup/phone.png',
-                    label: 'Pulsa',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const TopUpPulsaPage()),
+              child: _userId == null
+                  // Show loading spinner while user data loads
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white))
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _TopUpMethod(
+                          imagePath: 'assets/images/topup/phone.png',
+                          label: 'Pulsa',
+                          onTap: () => _navigate(const TopUpPulsaPage()),
+                        ),
+                        _TopUpMethod(
+                          imagePath: 'assets/images/topup/alfamart.png',
+                          label: 'Alfamart',
+                          onTap: () => _navigate(
+                              TopUpStorePage(storeName: 'Alfamart', userId: _userId!)),
+                        ),
+                        _TopUpMethod(
+                          imagePath: 'assets/images/topup/indomaret.png',
+                          label: 'Indomaret',
+                          onTap: () => _navigate(
+                              TopUpStorePage(storeName: 'Indomaret', userId: _userId!)),
+                        ),
+                        _TopUpMethod(
+                          imagePath: 'assets/images/topup/lawson.png',
+                          label: 'Lawson',
+                          onTap: () => _navigate(
+                              TopUpStorePage(storeName: 'Lawson', userId: _userId!)),
+                        ),
+                      ],
                     ),
-                  ),
-                  _TopUpMethod(
-                    imagePath: 'assets/images/topup/alfamart.png',
-                    label: 'Alfamart',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const TopUpStorePage(
-                              storeName: 'Alfamart')),
-                    ),
-                  ),
-                  _TopUpMethod(
-                    imagePath: 'assets/images/topup/indomaret.png',
-                    label: 'Indomaret',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const TopUpStorePage(
-                              storeName: 'Indomaret')),
-                    ),
-                  ),
-                  _TopUpMethod(
-                    imagePath: 'assets/images/topup/lawson.png',
-                    label: 'Lawson',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              const TopUpStorePage(storeName: 'Lawson')),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -130,8 +149,7 @@ class _TopUpMethod extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500
-          )),
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );

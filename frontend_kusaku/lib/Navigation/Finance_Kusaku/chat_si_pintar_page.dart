@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:io'; // ✅ FIX: needed for File() to display local images
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // ✅ FIX: was missing
+import '../../Services/chat_service.dart';
+
 
 class ChatSiPintarPage extends StatefulWidget {
   const ChatSiPintarPage({super.key});
@@ -15,49 +19,78 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
   final List<_ChatMessage> _messages = [];
   bool _isTyping = false;
 
-  // Category preference state — starts with defaults, user can add more
-  final List<String> _categoryOrder = [
-    'Kebutuhan Rumah',
-    'Makan & Minum',
-    'Transportasi',
-    'Investasi',
-    'Tabungan',
-    'Hiburan',
-    'Tagihan',
-    'Kesehatan',
-    'Pendidikan',
-  ];
+  List<String> _categoryOrder = [];
+  Map<String, double> _categoryPercentages = {};
+  Map<String, bool> _categoryEnabled = {};
+  bool _isLoadingCategories = true;
 
-  final Map<String, double> _categoryPercentages = {
-    'Kebutuhan Rumah': 30,
-    'Makan & Minum': 30,
-    'Transportasi': 10,
-    'Investasi': 15,
-    'Tabungan': 15,
-    'Hiburan': 0,
-    'Tagihan': 0,
-    'Kesehatan': 0,
-    'Pendidikan': 0,
-  };
+  int? _userId;
+  String _userInitial = '?';
 
-  final Map<String, bool> _categoryEnabled = {
-    'Kebutuhan Rumah': true,
-    'Makan & Minum': true,
-    'Transportasi': true,
-    'Investasi': true,
-    'Tabungan': true,
-    'Hiburan': false,
-    'Tagihan': false,
-    'Kesehatan': false,
-    'Pendidikan': false,
-  };
+  Future<void> _loadCategories(int userId) async {
+    try {
+      final data = await ChatService.getCategories(userId);
+
+      final order = <String>[];
+      final percentages = <String, double>{};
+      final enabled = <String, bool>{};
+
+      for (var item in data) {
+        final name = item['name'];
+        final pct = (item['percentage'] as num).toDouble();
+        final isEnabled = item['enabled'] ?? true;
+
+        order.add(name);
+        percentages[name] = pct;
+        enabled[name] = isEnabled;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _categoryOrder = order;
+        _categoryPercentages = percentages;
+        _categoryEnabled = enabled;
+        _isLoadingCategories = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingCategories = false);
+      _addSiPintarMessage(
+        text: 'Gagal memuat kategori dari server 😕',
+      );
+    }
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt('user_id');
+    final name = prefs.getString('username') ?? '?';
+    if (mounted) {
+      setState(() {
+        _userId = id;
+        _userInitial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await _loadUser();
+
+    if (_userId != null) {
+      await _loadCategories(_userId!);
+    } else {
+      setState(() => _isLoadingCategories = false);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _addSiPintarMessage(
-        text: 'Halo pejuang rupiah! Yuk, atur finansialmu sebaik mungkin. Aku bantu dalam pembagian per kategorinya ya.',
+        text: 'Halo pejuang rupiah! Yuk, atur finansialmu sebaik mungkin.',
         showPreferences: true,
       );
     });
@@ -82,7 +115,8 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     });
   }
 
-  void _addSiPintarMessage({required String text, bool showPreferences = false}) {
+  void _addSiPintarMessage(
+      {required String text, bool showPreferences = false}) {
     setState(() {
       _messages.add(_ChatMessage(
         text: text,
@@ -98,21 +132,75 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       _messages.add(_ChatMessage(text: text, isUser: true));
     });
     _scrollToBottom();
-    _simulateTypingResponse();
+    _getAIResponse(text);
   }
 
-  void _simulateTypingResponse() {
+  void _updatePercentage(String cat, double val) {
+    final total = _categoryPercentages.entries
+        .where((e) =>
+            e.key != cat && (_categoryEnabled[e.key] ?? false))
+        .fold(0.0, (sum, e) => sum + e.value);
+
+    if (total + val > 100) return;
+
+    setState(() => _categoryPercentages[cat] = val);
+  }
+
+  Future<void> _getAIResponse(String userText) async {
+    if (_userId == null) {
+      _addSiPintarMessage(text: 'User belum terdeteksi 😕');
+      return;
+    }
+
     setState(() => _isTyping = true);
     _scrollToBottom();
-    // TODO: replace with real API call to AI backend
-    Timer(const Duration(seconds: 2), () {
+
+    try {
+      final chatResponse =
+          await ChatService.sendMessage(_userId!, userText);
+
       if (!mounted) return;
+
+      await Future.delayed(const Duration(milliseconds: 300)); // smoother UX
+
       setState(() => _isTyping = false);
-      _addSiPintarMessage(
-        text: 'Baik! Aku sudah mencatat preferensimu. Apakah ada yang ingin kamu tanyakan atau sesuaikan lebih lanjut?',
-      );
+
+      if (chatResponse.type == 'budget_suggestion' &&
+          chatResponse.data != null) {
+        _applyBudgetSuggestion(chatResponse.data!);
+      }
+
+      _addSiPintarMessage(text: chatResponse.reply);
+    } catch (e, stack) {
+        print('ERROR SEND MESSAGE: $e');
+        print(stack);
+
+        if (!mounted) return;
+        setState(() => _isTyping = false);
+
+        _addSiPintarMessage(
+          text: 'Error: $e', // 👈 temporarily show real error
+        );
+      }
+  }
+
+  void _applyBudgetSuggestion(Map<String, dynamic> data) {
+    setState(() {
+      for (var category in data.keys) {
+        final pct = (data[category] as num).toDouble();
+
+        if (!_categoryOrder.contains(category)) {
+          _categoryOrder.add(category);
+        }
+
+        _categoryPercentages[category] = pct;
+        _categoryEnabled[category] = pct > 0;
+      }
     });
   }
+
+  // ✅ FIX: removed the old broken _simulateTypingResponse that had
+  //         _getAIResponse nested inside it doing nothing
 
   void _onSendText() {
     final text = _inputController.text.trim();
@@ -121,9 +209,28 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     _addUserMessage(text);
   }
 
-  void _onSimpanPengaturan() {
-    // TODO: call API to save category preferences
-    _addUserMessage('[Pengaturan kategori disimpan]');
+  Future<void> _onSimpanPengaturan() async {
+    try {
+      final userId = _userId ?? 1;
+
+      final payload = _categoryOrder.map((cat) {
+        return {
+          "name": cat,
+          "percentage": _categoryPercentages[cat],
+          "enabled": _categoryEnabled[cat],
+        };
+      }).toList();
+
+      await ChatService.saveCategories(userId, payload);
+
+      _addSiPintarMessage(
+        text: 'Pengaturan kamu sudah disimpan 🎉',
+      );
+    } catch (e) {
+      _addSiPintarMessage(
+        text: 'Gagal menyimpan pengaturan 😕',
+      );
+    }
   }
 
   void _onTambahKategori() {
@@ -152,16 +259,23 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal',
-                style: TextStyle(color: Color(0xFF6B7280))),
+            child:
+                const Text('Batal', style: TextStyle(color: Color(0xFF6B7280))),
           ),
           ElevatedButton(
             onPressed: () {
               final name = controller.text.trim();
               if (name.isEmpty) return;
+
+              final normalized = name.toLowerCase();
+
               Navigator.of(ctx).pop();
+
               setState(() {
-                if (!_categoryPercentages.containsKey(name)) {
+                final exists = _categoryPercentages.keys
+                    .any((k) => k.toLowerCase() == normalized);
+
+                if (!exists) {
                   _categoryOrder.add(name);
                   _categoryPercentages[name] = 0;
                   _categoryEnabled[name] = true;
@@ -187,10 +301,12 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     final image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
       setState(() {
-        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
+        _messages
+            .add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
       });
       _scrollToBottom();
-      _simulateTypingResponse();
+      // ✅ FIX: now calls the real AI response method, not the broken simulate
+      _getAIResponse('[User mengirim gambar untuk dianalisis]');
     }
   }
 
@@ -199,21 +315,22 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     final image = await picker.pickImage(source: ImageSource.camera);
     if (image != null && mounted) {
       setState(() {
-        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
+        _messages
+            .add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
       });
       _scrollToBottom();
-      _simulateTypingResponse();
+      // ✅ FIX: same here
+      _getAIResponse('[User mengirim foto untuk dianalisis]');
     }
   }
 
-  // ── Si Pintar avatar widget (image with padding, no icon fallback) ──
   Widget _siPintarAvatar({double size = 36}) {
     return Container(
       width: size,
       height: size,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 212, 103, 255),
+      decoration: const BoxDecoration(
+        color: Color.fromARGB(255, 212, 103, 255),
         shape: BoxShape.circle,
       ),
       child: ClipOval(
@@ -227,23 +344,23 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingCategories) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 23, 67, 189),
         foregroundColor: Colors.white,
-        centerTitle: true, // IMPORTANT
-
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-
         title: const Text(
           'Chat si Pintar',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -251,9 +368,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
               width: 65,
               height: 65,
               padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-              ),
+              decoration: const BoxDecoration(shape: BoxShape.circle),
               child: ClipOval(
                 child: Image.asset(
                   'images/sipintar/sipintar.png',
@@ -266,7 +381,6 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       ),
       body: Column(
         children: [
-          // ── Chat messages ──
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -278,15 +392,14 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
                 }
                 final msg = _messages[index];
                 return msg.isUser
-                    ? _UserBubble(message: msg)
+                    ? _UserBubble(message: msg, userInitial: _userInitial)
                     : _SiPintarBubble(
                         message: msg,
                         avatar: _siPintarAvatar(),
                         categoryOrder: _categoryOrder,
                         categoryPercentages: _categoryPercentages,
                         categoryEnabled: _categoryEnabled,
-                        onPercentageChanged: (cat, val) =>
-                            setState(() => _categoryPercentages[cat] = val),
+                        onPercentageChanged: (cat, val) => _updatePercentage(cat, val),
                         onEnabledChanged: (cat, val) =>
                             setState(() => _categoryEnabled[cat] = val),
                         onSimpan: _onSimpanPengaturan,
@@ -295,8 +408,6 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
               },
             ),
           ),
-
-          // ── Input bar ──
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
@@ -310,7 +421,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
                     onPressed: _onTakePhoto,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.calculate_outlined,
+                    icon: const Icon(Icons.image_outlined,
                         color: Color(0xFF1D4ED8), size: 24),
                     onPressed: _onPickGallery,
                   ),
@@ -407,8 +518,6 @@ class _SiPintarBubble extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF374151))),
                 const SizedBox(height: 4),
-
-                // Text bubble
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -432,8 +541,6 @@ class _SiPintarBubble extends StatelessWidget {
                           color: Color.fromARGB(255, 28, 33, 41),
                           height: 1.5)),
                 ),
-
-                // Preferences card
                 if (message.showPreferences) ...[
                   const SizedBox(height: 8),
                   _PreferencesCard(
@@ -510,10 +617,10 @@ class _PreferencesCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           const Text('(AI Rekomendasi)',
-              style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 48, 51, 58))),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Color.fromARGB(255, 48, 51, 58))),
           const SizedBox(height: 12),
-
-          // Category rows — driven by live list so new ones appear
           ...categoryOrder.map((cat) {
             final enabled = categoryEnabled[cat] ?? false;
             final pct = categoryPercentages[cat] ?? 0;
@@ -525,9 +632,7 @@ class _PreferencesCard extends StatelessWidget {
               onChanged: (val) => onPercentageChanged(cat, val),
             );
           }),
-
           const SizedBox(height: 12),
-
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -657,7 +762,9 @@ class _CategoryRow extends StatelessWidget {
 // ── User bubble ──
 class _UserBubble extends StatelessWidget {
   final _ChatMessage message;
-  const _UserBubble({required this.message});
+  final String userInitial; // ✅ FIX: passed in from state, not hardcoded
+
+  const _UserBubble({required this.message, required this.userInitial});
 
   @override
   Widget build(BuildContext context) {
@@ -680,8 +787,9 @@ class _UserBubble extends StatelessWidget {
                       ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      message.imagePath!,
+                    // ✅ FIX: use Image.file() for local paths, not Image.network()
+                    child: Image.file(
+                      File(message.imagePath!),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         width: 160,
@@ -719,18 +827,20 @@ class _UserBubble extends StatelessWidget {
                   ),
           ),
           const SizedBox(width: 8),
-          // TODO: replace 'K' with first letter of real username from session, yep, API lagi, mei
+          // ✅ FIX: shows real username initial from SharedPreferences
           Container(
             width: 30,
             height: 30,
             decoration: const BoxDecoration(
                 color: Color(0xFFBFDBFE), shape: BoxShape.circle),
-            child: const Center(
-              child: Text('', // TODO: Ini yg harus dikonek API
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1D4ED8))),
+            child: Center(
+              child: Text(
+                userInitial,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1D4ED8)),
+              ),
             ),
           ),
         ],
@@ -833,6 +943,7 @@ class _ChatMessage {
   final bool isUser;
   final bool showPreferences;
   final String? imagePath;
+
   const _ChatMessage({
     required this.text,
     required this.isUser,

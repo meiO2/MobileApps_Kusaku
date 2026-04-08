@@ -248,3 +248,48 @@ class TransferView(APIView):
             "recipient": recipient.phone_number,
             "remaining_balance": balance - float(amount),
         }, status=status.HTTP_201_CREATED)
+
+class UserCategoryBudgetView(APIView):
+
+    def get(self, request, user_id):
+        categories = Category.objects.filter(user_id=user_id)
+
+        result = []
+
+        for cat in categories:
+            budget = CategoryBudget.objects.filter(
+                user_id=user_id,
+                category=cat
+            ).first()
+
+            result.append({
+                "id": cat.id,
+                "name": cat.name,
+                "percentage": budget.percentage if budget else 0,
+                "enabled": cat.is_active
+            })
+
+        return Response(result)
+
+    def post(self, request, user_id):
+        data = request.data.get("categories", [])
+
+        for item in data:
+            cat = get_object_or_404(
+                Category,
+                id=item.get("id"),
+                user_id=user_id
+            )
+
+            cat.is_active = item.get("enabled", True)
+            cat.save()
+
+            budget, _ = CategoryBudget.objects.get_or_create(
+                user_id=user_id,
+                category=cat
+            )
+
+            budget.percentage = item.get("percentage", 0)
+            budget.save()
+
+        return Response({"message": "Updated successfully"})
