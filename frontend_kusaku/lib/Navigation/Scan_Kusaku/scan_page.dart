@@ -52,6 +52,13 @@ class _ScanPageState extends State<ScanPage> {
       ? 'Ambil gambar nota atau pilih dari galeri'
       : 'Arahkan kamera ke kode QR';
 
+  bool _isDemoQrisMatch(String rawValue) {
+    final digitsOnly = rawValue.replaceAll(RegExp(r'\D'), '');
+    return rawValue.trim() == _demoQrisNumber ||
+        digitsOnly == _demoQrisNumber ||
+        digitsOnly.contains(_demoQrisNumber);
+  }
+
   @override
   void dispose() {
     _scannerController.dispose();
@@ -82,12 +89,19 @@ class _ScanPageState extends State<ScanPage> {
                 _isScanning = true;
 
                 if (detected.isNotEmpty) {
-                  _onQRDetected(detected);
+                  if (_isDemoQrisMatch(detected)) {
+                    _onQRDetected(_demoQrisNumber);
+                  } else {
+                    setState(() {
+                      _statusMessage = 'QR tidak sesuai demo QRIS';
+                    });
+                    _isScanning = false;
+                  }
                 } else {
                   setState(() {
-                    _statusMessage = 'QR kamera tidak terbaca, menggunakan QRIS demo';
+                    _statusMessage = 'QR kamera tidak terbaca';
                   });
-                  _onQRDetected(_demoQrisNumber);
+                  _isScanning = false;
                 }
               }
             ),
