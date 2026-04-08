@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:io'; // ✅ FIX: needed for File() to display local images
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ✅ FIX: was missing
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../Services/chat_service.dart';
 
 
@@ -27,6 +27,8 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
   int? _userId;
   String _userInitial = '?';
 
+  Map<String, int> _categoryIds = {};  // name -> id mapping
+
   Future<void> _loadCategories(int userId) async {
     try {
       final data = await ChatService.getCategories(userId);
@@ -34,15 +36,14 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       final order = <String>[];
       final percentages = <String, double>{};
       final enabled = <String, bool>{};
+      final ids = <String, int>{};  // ← new
 
       for (var item in data) {
-        final name = item['name'];
-        final pct = (item['percentage'] as num).toDouble();
-        final isEnabled = item['enabled'] ?? true;
-
+        final name = item['name'] as String;
         order.add(name);
-        percentages[name] = pct;
-        enabled[name] = isEnabled;
+        percentages[name] = item['percentage'];
+        enabled[name] = item['enabled'];
+        ids[name] = item['id'];       // ← store id
       }
 
       if (!mounted) return;
@@ -50,14 +51,14 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
         _categoryOrder = order;
         _categoryPercentages = percentages;
         _categoryEnabled = enabled;
+        _categoryIds = ids;           // ← save to state
         _isLoadingCategories = false;
       });
-    } catch (e) {
+    } catch (e, stack) {
+      print('❌ LOAD CATEGORIES ERROR: $e\n$stack');
       if (!mounted) return;
       setState(() => _isLoadingCategories = false);
-      _addSiPintarMessage(
-        text: 'Gagal memuat kategori dari server 😕',
-      );
+      _addSiPintarMessage(text: 'Gagal memuat kategori: $e');
     }
   }
 
@@ -88,11 +89,44 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       setState(() => _isLoadingCategories = false);
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 1. Show greeting first
       _addSiPintarMessage(
         text: 'Halo pejuang rupiah! Yuk, atur finansialmu sebaik mungkin.',
-        showPreferences: true,
       );
+
+      // 2. Silently ask AI for initial budget recommendation
+      if (_userId != null) {
+        setState(() => _isTyping = true);
+        _scrollToBottom();
+
+        try {
+          final chatResponse = await ChatService.sendMessage(
+            _userId!,
+            'Berikan rekomendasi awal alokasi budget untuk kategori saya.',
+          );
+
+          setState(() => _isTyping = false);
+
+          if (chatResponse.type == 'budget_suggestion' &&
+              chatResponse.data != null) {
+            _applyBudgetSuggestion(chatResponse.data!);
+          }
+
+          // 3. Show AI reply + preferences card with updated percentages
+          _addSiPintarMessage(
+            text: chatResponse.reply,
+            showPreferences: true,
+          );
+        } catch (e) {
+          setState(() => _isTyping = false);
+          // Fallback: show card with whatever was loaded from server
+          _addSiPintarMessage(
+            text: 'Ini kategori kamu saat ini. Kamu bisa atur sendiri ya! 😊',
+            showPreferences: true,
+          );
+        }
+      }
     });
   }
 
@@ -179,7 +213,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
         setState(() => _isTyping = false);
 
         _addSiPintarMessage(
-          text: 'Error: $e', // 👈 temporarily show real error
+          text: 'Error: $e',
         );
       }
   }
@@ -199,9 +233,6 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     });
   }
 
-  // ✅ FIX: removed the old broken _simulateTypingResponse that had
-  //         _getAIResponse nested inside it doing nothing
-
   void _onSendText() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
@@ -211,25 +242,17 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
 
   Future<void> _onSimpanPengaturan() async {
     try {
-      final userId = _userId ?? 1;
-
-      final payload = _categoryOrder.map((cat) {
-        return {
-          "name": cat,
-          "percentage": _categoryPercentages[cat],
-          "enabled": _categoryEnabled[cat],
-        };
+      final payload = _categoryOrder.map((cat) => {
+        "id": _categoryIds[cat],          // ← now included
+        "name": cat,
+        "percentage": _categoryPercentages[cat] ?? 0,
+        "enabled": _categoryEnabled[cat] ?? false,
       }).toList();
 
-      await ChatService.saveCategories(userId, payload);
-
-      _addSiPintarMessage(
-        text: 'Pengaturan kamu sudah disimpan 🎉',
-      );
+      await ChatService.saveCategories(_userId!, payload);
+      _addSiPintarMessage(text: 'Pengaturan kamu sudah disimpan 🎉');
     } catch (e) {
-      _addSiPintarMessage(
-        text: 'Gagal menyimpan pengaturan 😕',
-      );
+      _addSiPintarMessage(text: 'Gagal menyimpan pengaturan: $e');
     }
   }
 

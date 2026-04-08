@@ -23,69 +23,56 @@ class ChatResponse {
 }
 
 class ChatService {
-  static Future<ChatResponse> sendMessage(
-      int userId, String message) async {
+  static Future<ChatResponse> sendMessage(int userId, String message) async {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}ai/message/$userId/'),
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode({
-        "message": message,
-      }),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"message": message}),
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return ChatResponse.fromJson(data);
+      return ChatResponse.fromJson(jsonDecode(response.body));
     } else {
-      throw Exception("Failed to send message");
+      throw Exception("Failed to send message: ${response.statusCode}");
     }
   }
 
-  static Future<List<dynamic>> getCategories(int userId) async {
+  // Returns list of {"id", "name", "percentage", "enabled"}
+  static Future<List<Map<String, dynamic>>> getCategories(int userId) async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}categories/$userId/'),
     );
 
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
-
-      return data.map((item) {
-        return {
-          "name": item['category']['name'],
-          "percentage": item['percentage'],
-          "enabled": true,
-        };
+      // Backend already returns flat: {id, name, percentage, enabled}
+      return data.map<Map<String, dynamic>>((item) => {
+        "id": item['id'],
+        "name": item['name'],
+        "percentage": (item['percentage'] as num).toDouble(),
+        "enabled": item['enabled'] ?? true,
       }).toList();
     } else {
-      throw Exception("Failed to load categories");
+      throw Exception("Failed to load categories: ${response.statusCode}");
     }
   }
 
-  // 💾 SAVE BUDGET SETTINGS
-  // ==============================
   static Future<void> saveCategories(
       int userId, List<Map<String, dynamic>> categories) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}budget/$userId/');
-
-    final payload = categories.map((cat) {
-      return {
-        "category_id": cat['id'],
-        "percentage": cat['percentage'],
-      };
-    }).toList();
-
-    final response = await http.put(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode(payload),
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}categories/update/$userId/'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "categories": categories.map((cat) => {
+          "id": cat['id'],
+          "percentage": cat['percentage'],
+          "enabled": cat['enabled'],
+        }).toList(),
+      }),
     );
 
     if (response.statusCode != 200) {
-      throw Exception("Failed to save categories");
+      throw Exception("Failed to save categories: ${response.statusCode}");
     }
   }
 }

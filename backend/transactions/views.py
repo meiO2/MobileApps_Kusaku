@@ -38,7 +38,7 @@ class BudgetView(APIView):
         budgets = CategoryBudget.objects.filter(user_id=user_id)
         return Response(CategoryBudgetSerializer(budgets, many=True).data)
 
-    def put(self, request, user_id):  # ✅ added user_id
+    def put(self, request, user_id):
         data = request.data
 
         if not isinstance(data, list):
