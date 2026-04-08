@@ -76,13 +76,12 @@ class _ScanPageState extends State<ScanPage> {
 
                 if (code != null) {
                   print("QR RESULT: $code");
-
-                  // contoh navigate
+                  _onQRDetected(code); // Memanggil fungsi deteksi
                 }
               }
             ),
 
-          // 🔥 UI OVERLAY (UNCHANGED)
+          // 🔥 UI OVERLAY
           Column(
             children: [
               ScanTopBar(
@@ -99,19 +98,9 @@ class _ScanPageState extends State<ScanPage> {
                     Expanded(
                       child: Column(
                         children: [
-                          Expanded(
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 340),
-                                child: ScanPreviewFrame(
-                                  contentType: _contentType,
-                                  isFlashOn: _isFlashOn,
-                                  showGalleryOverlay: _isGalleryOpen,
-                                  previewLabel: _previewLabel,
-                                ),
-                              ),
-                            ),
+                          // BAGIAN KOTAK TENGAH DIHAPUS DI SINI
+                          const Expanded(
+                            child: SizedBox.shrink(), // Memberikan ruang kosong agar kamera terlihat jelas
                           ),
                           if (!_isGalleryOpen) const ScanGuidanceCard(),
                           if (_statusMessage != null && !_isGalleryOpen)
@@ -173,16 +162,9 @@ class _ScanPageState extends State<ScanPage> {
 
   // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
-    if (_isScanning) return;
-
-    _isScanning = true;
-
     try {
       print("QR RESULT: $code");
-
       int? userId;
-
-      // 🔥 support JSON QR
       try {
         final data = jsonDecode(code);
         userId = data['user_id'];
@@ -192,11 +174,9 @@ class _ScanPageState extends State<ScanPage> {
 
       if (userId == null) {
         _showError("QR tidak valid");
-        return;
+      } else {
+        // Logika navigasi bisa ditaruh di sini
       }
-
-      if (!mounted) return;
-
     } catch (e) {
       _showError("Gagal scan QR");
     } finally {
