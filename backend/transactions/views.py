@@ -21,16 +21,46 @@ class CategoryListView(APIView):
         categories = Category.objects.filter(user=request.user)
         return Response(CategorySerializer(categories, many=True).data)
 
+from .models import Category, CategoryBudget
+
 class CategoryUpdateView(APIView):
 
-    def put(self, request, pk):
-        category = get_object_or_404(Category, pk=pk, user=request.user)
+    def post(self, request, pk):
+        print("REQUEST DATA:", request.data)
 
-        category.name = request.data.get("name", category.name)
-        category.is_active = request.data.get("is_active", category.is_active)
-        category.save()
+        user = get_object_or_404(Account, pk=pk)
+        categories = request.data.get("categories", [])
 
-        return Response(CategorySerializer(category).data)
+        updated = []
+
+        for cat_data in categories:
+            cat_id = cat_data.get("id")
+
+            category = get_object_or_404(
+                Category,
+                pk=cat_id,
+                user=user
+            )
+
+            category.is_active = cat_data.get("enabled", category.is_active)
+            category.save()
+
+            budget, _ = CategoryBudget.objects.get_or_create(
+                user=user,
+                category=category
+            )
+
+            budget.percentage = cat_data.get("percentage", budget.percentage)
+            budget.save()
+
+            updated.append({
+                "id": category.id,
+                "name": category.name,
+                "percentage": budget.percentage,
+                "enabled": category.is_active,
+            })
+
+        return Response(updated)
 
 class BudgetView(APIView):
 
@@ -252,13 +282,15 @@ class TransferView(APIView):
 class UserCategoryBudgetView(APIView):
 
     def get(self, request, user_id):
-        categories = Category.objects.filter(user_id=user_id)
+        user = get_object_or_404(Account, pk=user_id)
+
+        categories = Category.objects.filter(user=user)
 
         result = []
 
         for cat in categories:
             budget = CategoryBudget.objects.filter(
-                user_id=user_id,
+                user=user,
                 category=cat
             ).first()
 
@@ -266,30 +298,7 @@ class UserCategoryBudgetView(APIView):
                 "id": cat.id,
                 "name": cat.name,
                 "percentage": budget.percentage if budget else 0,
-                "enabled": cat.is_active
+                "enabled": cat.is_active,
             })
 
         return Response(result)
-
-    def post(self, request, user_id):
-        data = request.data.get("categories", [])
-
-        for item in data:
-            cat = get_object_or_404(
-                Category,
-                id=item.get("id"),
-                user_id=user_id
-            )
-
-            cat.is_active = item.get("enabled", True)
-            cat.save()
-
-            budget, _ = CategoryBudget.objects.get_or_create(
-                user_id=user_id,
-                category=cat
-            )
-
-            budget.percentage = item.get("percentage", 0)
-            budget.save()
-
-        return Response({"message": "Updated successfully"})

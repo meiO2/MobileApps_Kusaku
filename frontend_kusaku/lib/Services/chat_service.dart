@@ -59,6 +59,7 @@ class ChatService {
 
   static Future<void> saveCategories(
       int userId, List<Map<String, dynamic>> categories) async {
+
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}categories/update/$userId/'),
       headers: {"Content-Type": "application/json"},
@@ -72,6 +73,7 @@ class ChatService {
     );
 
     if (response.statusCode != 200) {
+      print(response.body);
       throw Exception("Failed to save categories: ${response.statusCode}");
     }
   }

@@ -27,7 +27,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
   int? _userId;
   String _userInitial = '?';
 
-  Map<String, int> _categoryIds = {};  // name -> id mapping
+  Map<String, int> _categoryIds = {};
 
   Future<void> _loadCategories(int userId) async {
     try {
@@ -36,14 +36,14 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       final order = <String>[];
       final percentages = <String, double>{};
       final enabled = <String, bool>{};
-      final ids = <String, int>{};  // ← new
+      final ids = <String, int>{};
 
       for (var item in data) {
         final name = item['name'] as String;
         order.add(name);
         percentages[name] = item['percentage'];
         enabled[name] = item['enabled'];
-        ids[name] = item['id'];       // ← store id
+        ids[name] = item['id'];
       }
 
       if (!mounted) return;
@@ -51,7 +51,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
         _categoryOrder = order;
         _categoryPercentages = percentages;
         _categoryEnabled = enabled;
-        _categoryIds = ids;           // ← save to state
+        _categoryIds = ids;
         _isLoadingCategories = false;
       });
     } catch (e, stack) {
@@ -113,14 +113,12 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
             _applyBudgetSuggestion(chatResponse.data!);
           }
 
-          // 3. Show AI reply + preferences card with updated percentages
           _addSiPintarMessage(
-            text: chatResponse.reply,
+            text: "Aku sudah siapkan rekomendasi budget awal untuk kamu 😊",
             showPreferences: true,
           );
         } catch (e) {
           setState(() => _isTyping = false);
-          // Fallback: show card with whatever was loaded from server
           _addSiPintarMessage(
             text: 'Ini kategori kamu saat ini. Kamu bisa atur sendiri ya! 😊',
             showPreferences: true,
@@ -204,7 +202,14 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
         _applyBudgetSuggestion(chatResponse.data!);
       }
 
-      _addSiPintarMessage(text: chatResponse.reply);
+      if (chatResponse.type == 'budget_suggestion') {
+        _addSiPintarMessage(
+          text: "Aku sudah siapkan rekomendasi budget buat kamu 😊",
+          showPreferences: true,
+        );
+      } else {
+        _addSiPintarMessage(text: chatResponse.reply);
+      }
     } catch (e, stack) {
         print('ERROR SEND MESSAGE: $e');
         print(stack);
