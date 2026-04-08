@@ -275,11 +275,13 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       child: const Text(
-                        '                                Top Up Kusaku sesering mungkin, raih total 67\n                                perak Kusaku points!', //what the hell
+                        'Top Up Kusaku sesering mungkin, raih total 67\nperak Kusaku points!', //what the hell
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w200,
+                          
                         ),
                       ),
                     ),
