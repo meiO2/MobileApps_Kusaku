@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' as ms;
 
 import 'package:frontend_kusaku/Widgets/scan_widgets.dart';
-import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
+import 'package:frontend_kusaku/config/api_config.dart';
+import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_models.dart';
+import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_page.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({
@@ -30,7 +33,6 @@ class _ScanPageState extends State<ScanPage> {
   bool _isScanning = false;
 
   ScanContentType _contentType = ScanContentType.qris;
-  String? _selectedGalleryId;
   String? _statusMessage;
 
   final ImagePicker _picker = ImagePicker();
@@ -41,20 +43,6 @@ class _ScanPageState extends State<ScanPage> {
         detectionSpeed: ms.DetectionSpeed.noDuplicates,
         facing: ms.CameraFacing.back,
       );
-
-  static const List<ScanGalleryItem> _galleryItems = [
-    ScanGalleryItem(id: 'qr-1'),
-    ScanGalleryItem(id: 'qr-2'),
-    ScanGalleryItem(id: 'qr-3'),
-    ScanGalleryItem(id: 'qr-4'),
-    ScanGalleryItem(id: 'receipt-1', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-2', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-3', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-4', isReceipt: true),
-  ];
-
-  String get _previewLabel =>
-      _contentType == ScanContentType.receipt ? 'Photo' : 'QRIS';
 
   String get _headline => _contentType == ScanContentType.receipt
       ? 'Unggah nota untuk diproses'
@@ -169,26 +157,92 @@ class _ScanPageState extends State<ScanPage> {
   // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
     try {
-      print("QR RESULT: $code");
-      int? userId;
-      try {
-        final data = jsonDecode(code);
-        userId = data['user_id'];
-      } catch (_) {
-        userId = int.tryParse(code);
+      final qrisNumber = code.trim();
+      if (qrisNumber.isEmpty) {
+        _showError('QR tidak valid');
+        return;
       }
 
-      if (userId == null) {
-        _showError("QR tidak valid");
+      setState(() {
+        _isBusy = true;
+        _statusMessage = 'Memverifikasi QRIS...';
+      });
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}qr/scan/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'qris_number': qrisNumber}),
+      );
+
+      final dynamic payload = response.body.isEmpty
+          ? null
+          : jsonDecode(response.body);
+      final body = payload is Map<String, dynamic>
+          ? payload
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200) {
+        await _openPaymentConfirmation(body);
       } else {
-        // Logika navigasi bisa ditaruh di sini
+        _showError(
+          (body['error'] ?? body['detail'] ?? 'QRIS tidak valid atau tidak terdaftar').toString(),
+        );
       }
     } catch (e) {
-      _showError("Gagal scan QR");
+      _showError('Gagal scan QR');
     } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
       await Future.delayed(const Duration(seconds: 2));
       _isScanning = false;
     }
+  }
+
+  int _parseAmount(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.round();
+    if (value is String) {
+      final normalized = value.replaceAll(',', '.');
+      final decimalValue = double.tryParse(normalized);
+      if (decimalValue != null) return decimalValue.round();
+    }
+    return 0;
+  }
+
+  Future<void> _openPaymentConfirmation(Map<String, dynamic> body) async {
+    final amount = _parseAmount(body['amount']);
+    final transactionDate = DateTime.tryParse((body['transaction_date'] ?? '').toString()) ?? DateTime.now();
+
+    final data = PaymentConfirmationData(
+      transactionId: (body['id'] ?? body['qris_number'] ?? '').toString(),
+      methodType: PaymentMethodType.qris,
+      methodLabel: 'Pembayaran Qris',
+      amount: amount,
+      transactionFee: 0,
+      remainingBalance: _parseAmount(body['remaining_balance']),
+      merchant: PaymentMerchantInfo(
+        name: (body['merchant_name'] ?? 'Merchant').toString(),
+        accountName: (body['merchant_PT'] ?? '-').toString(),
+        transactedAt: transactionDate,
+      ),
+      categories: const [
+        PaymentCategoryData(
+          id: 'food-drink',
+          name: 'Makan & Minum',
+          remainingAmount: 0,
+          icon: Icons.fastfood_rounded,
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PaymentConfirmationPage(data: data)),
+    );
   }
 
   void _showError(String message) {
@@ -269,6 +323,7 @@ class _ScanPageState extends State<ScanPage> {
       });
 
       await widget.onGallerySubmitted?.call(const ScanGalleryItem(id: 'gallery-upload'));
+      _isScanning = true;
       _onQRDetected(qrValue);
     } catch (_) {
       setState(() {
