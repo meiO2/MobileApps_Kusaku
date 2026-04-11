@@ -27,8 +27,6 @@ class ScanPage extends StatefulWidget {
 }
 
 class _ScanPageState extends State<ScanPage> {
-  static const String _demoQrisNumber = '011006081106';
-
   bool _isFlashOn = false;
   bool _isBusy = false;
   bool _isScanning = false;
@@ -52,13 +50,6 @@ class _ScanPageState extends State<ScanPage> {
       ? 'Ambil gambar nota atau pilih dari galeri'
       : 'Arahkan kamera ke kode QR';
 
-  bool _isDemoQrisMatch(String rawValue) {
-    final digitsOnly = rawValue.replaceAll(RegExp(r'\D'), '');
-    return rawValue.trim() == _demoQrisNumber ||
-        digitsOnly == _demoQrisNumber ||
-        digitsOnly.contains(_demoQrisNumber);
-  }
-
   @override
   void dispose() {
     _scannerController.dispose();
@@ -77,33 +68,20 @@ class _ScanPageState extends State<ScanPage> {
               controller: _scannerController,
               onDetect: (ms.BarcodeCapture capture) {
                 if (_isScanning) return;
-                final detected = capture.barcodes
-                    .map((barcode) => barcode.rawValue)
-                    .whereType<String>()
-                    .map((value) => value.trim())
-                    .firstWhere(
-                      (value) => value.isNotEmpty,
-                      orElse: () => '',
-                    );
 
-                _isScanning = true;
+                final detected = capture.barcodes
+                    .map((b) => b.rawValue)
+                    .whereType<String>()
+                    .map((v) => v.trim())
+                    .firstWhere((v) => v.isNotEmpty, orElse: () => '');
 
                 if (detected.isNotEmpty) {
-                  if (_isDemoQrisMatch(detected)) {
-                    _onQRDetected(_demoQrisNumber);
-                  } else {
-                    setState(() {
-                      _statusMessage = 'QR tidak sesuai demo QRIS';
-                    });
-                    _isScanning = false;
-                  }
+                  _isScanning = true;
+                  _onQRDetected(detected);
                 } else {
-                  setState(() {
-                    _statusMessage = 'QR kamera tidak terbaca';
-                  });
-                  _isScanning = false;
+                  setState(() => _statusMessage = 'QR kamera tidak terbaca');
                 }
-              }
+              },
             ),
 
           // 🔥 UI OVERLAY
@@ -123,10 +101,7 @@ class _ScanPageState extends State<ScanPage> {
                     Expanded(
                       child: Column(
                         children: [
-                          // BAGIAN KOTAK TENGAH DIHAPUS DI SINI
-                          const Expanded(
-                            child: SizedBox.shrink(), // Memberikan ruang kosong agar kamera terlihat jelas
-                          ),
+                          const Expanded(child: SizedBox.shrink()),
                           const ScanGuidanceCard(),
                           if (_statusMessage != null)
                             ScanStatusChip(label: _statusMessage!),
@@ -136,26 +111,21 @@ class _ScanPageState extends State<ScanPage> {
                     ScanActionBar(
                       items: [
                         ScanActionItem(
-                          label: _isFlashOn
-                              ? 'Flash Aktif'
-                              : 'Nyalakan\nFlash',
+                          label: _isFlashOn ? 'Flash Aktif' : 'Nyalakan\nFlash',
                           icon: Icons.flash_on_rounded,
                           isActive: _isFlashOn,
                           onTap: _isBusy ? () {} : _toggleFlash,
                         ),
                         ScanActionItem(
-                          label: _contentType ==
-                                  ScanContentType.receipt
+                          label: _contentType == ScanContentType.receipt
                               ? 'Qris'
                               : 'Unggah\nNota',
-                          icon: _contentType ==
-                                  ScanContentType.receipt
+                          icon: _contentType == ScanContentType.receipt
                               ? Icons.qr_code_scanner_rounded
                               : Icons.receipt_long_rounded,
                           onTap: _isBusy
                               ? () {}
-                              : _contentType ==
-                                      ScanContentType.receipt
+                              : _contentType == ScanContentType.receipt
                                   ? _openQrisMode
                                   : _openReceiptMode,
                         ),
@@ -177,57 +147,24 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
-  Future<http.Response> _requestScanWithFallback(String qrisNumber) async {
-    final baseCandidates = <String>{
-      ApiConfig.baseUrl,
-      'http://127.0.0.1:8000/api/',
-      'http://localhost:8000/api/',
-      'http://10.0.2.2:8000/api/',
-    };
-
-    Object? lastError;
-
-    for (final base in baseCandidates) {
-      final normalizedBase = base.endsWith('/') ? base : '$base/';
-      final uri = Uri.parse('${normalizedBase}qr/scan/');
-
-      try {
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'qris_number': qrisNumber}),
-            )
-            .timeout(const Duration(seconds: 8));
-
-        if (response.statusCode < 500) {
-          return response;
-        }
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw Exception(
-      'Tidak bisa menghubungi backend scan QRIS${lastError != null ? ': $lastError' : ''}',
-    );
-  }
-
   // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
     try {
-      final qrisNumber = code.trim().isEmpty ? _demoQrisNumber : code.trim();
+      final qrisNumber = code.trim();
 
       setState(() {
         _isBusy = true;
         _statusMessage = 'Memverifikasi QRIS...';
       });
 
-      final response = await _requestScanWithFallback(qrisNumber);
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}qr/scan/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'qris_number': qrisNumber}),
+      ).timeout(const Duration(seconds: 8));
 
-      final dynamic payload = response.body.isEmpty
-          ? null
-          : jsonDecode(response.body);
+      final dynamic payload =
+          response.body.isEmpty ? null : jsonDecode(response.body);
       final body = payload is Map<String, dynamic>
           ? payload
           : <String, dynamic>{};
@@ -243,9 +180,7 @@ class _ScanPageState extends State<ScanPage> {
       _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) {
-        setState(() {
-          _isBusy = false;
-        });
+        setState(() => _isBusy = false);
       }
       await Future.delayed(const Duration(seconds: 2));
       _isScanning = false;
@@ -286,9 +221,7 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   void _showError(String message) {
-    setState(() {
-      _statusMessage = message;
-    });
+    setState(() => _statusMessage = message);
   }
 
   // 🔦 FLASH
@@ -297,7 +230,6 @@ class _ScanPageState extends State<ScanPage> {
       _isFlashOn = !_isFlashOn;
       _statusMessage = _isFlashOn ? 'Flash aktif' : 'Flash mati';
     });
-
     _scannerController.toggleTorch();
     await widget.onFlashChanged?.call(_isFlashOn);
   }
@@ -308,7 +240,6 @@ class _ScanPageState extends State<ScanPage> {
       _contentType = ScanContentType.receipt;
       _statusMessage = 'Mode nota aktif';
     });
-
     await widget.onContentTypeChanged?.call(_contentType);
   }
 
@@ -317,7 +248,6 @@ class _ScanPageState extends State<ScanPage> {
       _contentType = ScanContentType.qris;
       _statusMessage = 'Mode QRIS aktif';
     });
-
     await widget.onContentTypeChanged?.call(_contentType);
   }
 
@@ -333,30 +263,53 @@ class _ScanPageState extends State<ScanPage> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) {
-        setState(() {
-          _statusMessage = 'Pemilihan gambar dibatalkan';
-        });
+        setState(() => _statusMessage = 'Pemilihan gambar dibatalkan');
         return;
       }
-      setState(() {
-        _statusMessage = 'Gambar dipilih, memverifikasi QRIS demo...';
+
+      setState(() => _statusMessage = 'Membaca QR dari gambar...');
+
+      // analyzeImage returns bool in newer mobile_scanner versions.
+      // The decoded barcode fires on the barcodes stream, so we use
+      // a Completer to await it with a timeout.
+      final completer = Completer<String?>();
+      late StreamSubscription<ms.BarcodeCapture> sub;
+
+      sub = _scannerController.barcodes.listen((capture) {
+        final code = capture.barcodes
+            .map((b) => b.rawValue)
+            .whereType<String>()
+            .map((v) => v.trim())
+            .firstWhere((v) => v.isNotEmpty, orElse: () => '');
+        if (!completer.isCompleted) {
+          completer.complete(code.isEmpty ? null : code);
+        }
+        sub.cancel();
       });
+
+      await _scannerController.analyzeImage(image.path);
+
+      final detectedCode = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          sub.cancel();
+          return null;
+        },
+      );
+
+      if (detectedCode == null || detectedCode.isEmpty) {
+        setState(() => _statusMessage = 'Tidak ada QR yang terbaca di gambar ini');
+        return;
+      }
 
       await widget.onGallerySubmitted?.call(const ScanGalleryItem(id: 'gallery-upload'));
       _isScanning = true;
-      _onQRDetected(_demoQrisNumber);
-    } catch (_) {
-      setState(() {
-        _statusMessage = 'Gagal membaca gambar, menggunakan QRIS demo';
-      });
-
-      _isScanning = true;
-      _onQRDetected(_demoQrisNumber);
+      _onQRDetected(detectedCode);
+    } catch (e) {
+      setState(() => _statusMessage = 'Gagal membaca gambar: $e');
     } finally {
       if (mounted) {
-        setState(() {
-          _isBusy = false;
-        });
+        setState(() => _isBusy = false);
       }
     }
   }

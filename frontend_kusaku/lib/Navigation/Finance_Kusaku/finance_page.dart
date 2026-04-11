@@ -40,39 +40,39 @@ class _FinancePageState extends State<FinancePage> {
   }
 
   Future<void> _loadData() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('user_id');
-    if (userId == null) {
-      print('❌ NO USER ID');
-      return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      if (userId == null) {
+        print('❌ NO USER ID');
+        return;
+      }
+
+      print('✅ userId: $userId');
+
+      final results = await Future.wait([
+        FinanceService.fetchBalance(userId),
+        FinanceService.fetchBudgets(userId),
+      ]);
+
+      final balanceData = results[0] as Map<String, dynamic>;
+      final budgetData  = results[1] as List<dynamic>;
+
+      setState(() {
+        _balance     = (balanceData['balance'] as num).toDouble();
+        _totalIncome = (balanceData['total_income'] as num).toDouble();
+        _budgets = budgetData
+          .where((b) => (b['percentage'] as num) > 0)
+          .toList();
+        print('✅ FILTERED BUDGETS: ${_budgets.length}');
+        _isLoading = false;
+      });
+    } catch (e, stack) {
+      print('❌ ERROR: $e');
+      print(stack);
+      setState(() => _isLoading = false);
     }
-
-    print('✅ userId: $userId');
-
-    final results = await Future.wait([
-      FinanceService.fetchBalance(userId),
-      FinanceService.fetchBudgets(userId),
-    ]);
-
-    final balanceData = results[0] as Map<String, dynamic>;
-    final budgetData  = results[1] as List<dynamic>;
-
-    setState(() {
-      _balance     = (balanceData['balance'] as num).toDouble();
-      _totalIncome = (balanceData['total_income'] as num).toDouble();
-      _budgets = budgetData
-        .where((b) => (b['percentage'] as num) > 0)
-        .toList();
-      print('✅ FILTERED BUDGETS: ${_budgets.length}');
-      _isLoading = false;
-    });
-  } catch (e, stack) {
-    print('❌ ERROR: $e');
-    print(stack);
-    setState(() => _isLoading = false);
   }
-}
 
   String _formatRp(double amount) {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
@@ -142,24 +142,25 @@ class _FinancePageState extends State<FinancePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Blue header ──
+            // ── Header — doc 1 light blue ──
             Container(
               width: double.infinity,
-              color: const Color(0xFF1D4ED8),
+              color: const Color.fromARGB(255, 233, 246, 255),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
+                  // ── Saldo card ──
                   GestureDetector(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
-                    ).then((_) => _loadData()), // ← ADD THIS
+                    ).then((_) => _loadData()),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 180, 210, 255),
+                        color: const Color(0xFFF8F9FF),
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
@@ -187,7 +188,6 @@ class _FinancePageState extends State<FinancePage> {
 
                                 const SizedBox(height: 8),
 
-                                // ✅ Now shows real balance from API
                                 Text(
                                   _isLoading ? 'Memuat...' : _formatRp(_balance),
                                   style: const TextStyle(
@@ -208,7 +208,6 @@ class _FinancePageState extends State<FinancePage> {
 
                                 const SizedBox(height: 10),
 
-                                // ✅ Now computed dynamically
                                 Text(
                                   _getDaysRemainingLabel(),
                                   style: const TextStyle(
@@ -248,18 +247,18 @@ class _FinancePageState extends State<FinancePage> {
 
                   const SizedBox(height: 14),
 
-                  // ✅ Now computed dynamically
-                  Text(
-                    _getMonthYearLabel(),
-                    style: const TextStyle(
-                      color: Color.fromARGB(255, 109, 143, 255),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                  // ── Calendar — doc 1: centered label ──
+                  Center(
+                    child: Text(
+                      _getMonthYearLabel(),
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 109, 143, 255),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // ✅ Calendar now tracks the real current week
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: weekDays.map((d) => _DayCell(day: d)).toList(),
@@ -290,14 +289,14 @@ class _FinancePageState extends State<FinancePage> {
 
                             return _CategoryTile(
                               icon: _iconMap[categoryName] ?? Icons.category_outlined,
-                              iconColor: const Color(0xFF4677FF),
+                              iconColor: const Color.fromARGB(255, 70, 119, 255),
                               label: categoryName,
                               sisaBulanIni: remaining,
                               formatRp: _formatRp,
                             );
                           },
                         ),
-                )
+                ),
           ],
         ),
       ),
@@ -318,7 +317,7 @@ class _DayCell extends StatelessWidget {
           day.day,
           style: const TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w800,
             color: Color(0xFF1E3A8A),
           ),
         ),
@@ -338,7 +337,7 @@ class _DayCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: day.isToday ? FontWeight.w700 : FontWeight.w800,
-                color: const Color(0xFF1E3A8A),
+                color: day.isToday ? Colors.white : const Color(0xFF1E3A8A),
               ),
             ),
           ),
