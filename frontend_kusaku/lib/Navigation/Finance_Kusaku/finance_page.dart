@@ -31,36 +31,48 @@ class _FinancePageState extends State<FinancePage> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _loadData();
   }
 
   Future<void> _loadData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id');
-      if (userId == null) return;
-
-      final results = await Future.wait([
-        FinanceService.fetchBalance(userId),
-        FinanceService.fetchBudgets(userId),
-      ]);
-
-      final balanceData = results[0] as Map<String, dynamic>;
-      final budgetData  = results[1] as List<dynamic>;
-
-      setState(() {
-        _balance     = (balanceData['balance']      as num).toDouble();
-        _totalIncome = (balanceData['total_income'] as num).toDouble();
-        _budgets = budgetData
-          .where((b) => (b['percentage'] as num) > 0)
-          .toList();
-        _isLoading   = false;
-      });
-    } catch (e) {
-      print('Error loading finance data: $e');
-      setState(() => _isLoading = false);
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    if (userId == null) {
+      print('❌ NO USER ID');
+      return;
     }
+
+    print('✅ userId: $userId');
+
+    final results = await Future.wait([
+      FinanceService.fetchBalance(userId),
+      FinanceService.fetchBudgets(userId),
+    ]);
+
+    final balanceData = results[0] as Map<String, dynamic>;
+    final budgetData  = results[1] as List<dynamic>;
+
+    setState(() {
+      _balance     = (balanceData['balance'] as num).toDouble();
+      _totalIncome = (balanceData['total_income'] as num).toDouble();
+      _budgets = budgetData
+        .where((b) => (b['percentage'] as num) > 0)
+        .toList();
+      print('✅ FILTERED BUDGETS: ${_budgets.length}');
+      _isLoading = false;
+    });
+  } catch (e, stack) {
+    print('❌ ERROR: $e');
+    print(stack);
+    setState(() => _isLoading = false);
   }
+}
 
   String _formatRp(double amount) {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
@@ -91,7 +103,6 @@ class _FinancePageState extends State<FinancePage> {
 
   List<_CalendarDay> _getCurrentWeekDays() {
     final now = DateTime.now();
-    // Find the Sunday of the current week
     final startOfWeek = now.subtract(Duration(days: now.weekday % 7));
     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -140,11 +151,10 @@ class _FinancePageState extends State<FinancePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  // ── Saldo card — tap to open Si Pintar ──
                   GestureDetector(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
-                    ),
+                    ).then((_) => _loadData()), // ← ADD THIS
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
@@ -268,7 +278,7 @@ class _FinancePageState extends State<FinancePage> {
                       ? _EmptyBudgetState(onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
-                          );
+                          ).then((_) => _loadData());
                         })
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(vertical: 12),

@@ -18,6 +18,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
   bool _isTyping = false;
+  bool _hasShownPreferences = false;
 
   List<String> _categoryOrder = [];
   Map<String, double> _categoryPercentages = {};
@@ -90,27 +91,21 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 1. Show greeting first
       _addSiPintarMessage(
         text: 'Halo pejuang rupiah! Yuk, atur finansialmu sebaik mungkin.',
       );
 
-      // 2. Silently ask AI for initial budget recommendation
       if (_userId != null) {
         setState(() => _isTyping = true);
         _scrollToBottom();
 
         try {
-          final chatResponse = await ChatService.sendMessage(
-            _userId!,
-            'Berikan rekomendasi awal alokasi budget untuk kategori saya.',
-          );
+          final budgetResponse = await ChatService.getInitialBudget(_userId!);
 
           setState(() => _isTyping = false);
 
-          if (chatResponse.type == 'budget_suggestion' &&
-              chatResponse.data != null) {
-            _applyBudgetSuggestion(chatResponse.data!);
+          if (budgetResponse.type == 'budget_suggestion' && budgetResponse.data != null) {
+            _applyBudgetSuggestion(budgetResponse.data!);
           }
 
           _addSiPintarMessage(
@@ -188,39 +183,21 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     _scrollToBottom();
 
     try {
-      final chatResponse =
-          await ChatService.sendMessage(_userId!, userText);
+      final chatResponse = await ChatService.sendMessage(_userId!, userText);
 
       if (!mounted) return;
-
-      await Future.delayed(const Duration(milliseconds: 300)); // smoother UX
-
+      await Future.delayed(const Duration(milliseconds: 300));
       setState(() => _isTyping = false);
 
-      if (chatResponse.type == 'budget_suggestion' &&
-          chatResponse.data != null) {
-        _applyBudgetSuggestion(chatResponse.data!);
-      }
-
-      if (chatResponse.type == 'budget_suggestion') {
-        _addSiPintarMessage(
-          text: "Aku sudah siapkan rekomendasi budget buat kamu 😊",
-          showPreferences: true,
-        );
-      } else {
-        _addSiPintarMessage(text: chatResponse.reply);
-      }
+      // Always just show the reply — chat endpoint never returns budget JSON
+      _addSiPintarMessage(text: chatResponse.reply);
     } catch (e, stack) {
-        print('ERROR SEND MESSAGE: $e');
-        print(stack);
-
-        if (!mounted) return;
-        setState(() => _isTyping = false);
-
-        _addSiPintarMessage(
-          text: 'Error: $e',
-        );
-      }
+      print('ERROR SEND MESSAGE: $e');
+      print(stack);
+      if (!mounted) return;
+      setState(() => _isTyping = false);
+      _addSiPintarMessage(text: 'Error: $e');
+    }
   }
 
   void _applyBudgetSuggestion(Map<String, dynamic> data) {

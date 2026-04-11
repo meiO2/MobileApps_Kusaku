@@ -41,9 +41,15 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
+    // keep filter init here, just remove _fetchTransactions()
     final initialFilter = HistoryFilterDraft.initial(now: DateTime.now());
     _appliedFilter = initialFilter;
     _filterDraft = initialFilter;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _fetchTransactions();
   }
 

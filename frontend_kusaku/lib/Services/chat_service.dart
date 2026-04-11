@@ -57,6 +57,19 @@ class ChatService {
     }
   }
 
+  static Future<ChatResponse> getInitialBudget(int userId) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}ai/init-budget/$userId/'),
+      headers: {"Content-Type": "application/json"},
+    );
+
+    if (response.statusCode == 200) {
+      return ChatResponse.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception("Failed to get initial budget: ${response.statusCode}");
+    }
+  }
+
   static Future<void> saveCategories(
       int userId, List<Map<String, dynamic>> categories) async {
 
@@ -78,3 +91,4 @@ class ChatService {
     }
   }
 }
+

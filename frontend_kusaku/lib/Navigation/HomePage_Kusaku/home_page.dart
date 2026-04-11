@@ -61,9 +61,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-
-    _initData();
-
     _carouselTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       final next = (_currentCarouselIndex + 1) % _bannerImages.length;
@@ -73,6 +70,12 @@ class _HomePageState extends State<HomePage> {
         curve: Curves.easeInOut,
       );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initData();
   }
 
   Future<void> _initData() async {

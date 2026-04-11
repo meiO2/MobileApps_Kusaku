@@ -31,16 +31,17 @@ class CategoryUpdateView(APIView):
         user = get_object_or_404(Account, pk=pk)
         categories = request.data.get("categories", [])
 
+        from django.db.models import Sum
+        total_income = Income.objects.filter(user=user).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
         updated = []
 
         for cat_data in categories:
             cat_id = cat_data.get("id")
 
-            category = get_object_or_404(
-                Category,
-                pk=cat_id,
-                user=user
-            )
+            category = get_object_or_404(Category, pk=cat_id, user=user)
 
             category.is_active = cat_data.get("enabled", category.is_active)
             category.save()
@@ -50,7 +51,9 @@ class CategoryUpdateView(APIView):
                 category=category
             )
 
-            budget.percentage = cat_data.get("percentage", budget.percentage)
+            percentage = cat_data.get("percentage", budget.percentage)
+            budget.percentage = percentage
+            budget.allocated_amount = (percentage / 100) * float(total_income)  # ← add float()
             budget.save()
 
             updated.append({
@@ -65,8 +68,33 @@ class CategoryUpdateView(APIView):
 class BudgetView(APIView):
 
     def get(self, request, user_id):
-        budgets = CategoryBudget.objects.filter(user_id=user_id)
-        return Response(CategoryBudgetSerializer(budgets, many=True).data)
+        from django.db.models import Sum
+
+        total_income = Income.objects.filter(user_id=user_id).aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
+        budgets = CategoryBudget.objects.filter(
+            user_id=user_id,
+            category__is_active=True,
+            percentage__gt=0
+        ).select_related('category')
+
+        result = []
+        for budget in budgets:
+            allocated = (budget.percentage / 100) * float(total_income)  # ← float()
+            remaining = allocated - float(budget.used_amount)             # ← float()
+            result.append({
+                "category": {
+                    "name": budget.category.name,
+                },
+                "percentage": budget.percentage,
+                "allocated_amount": allocated,
+                "used_amount": float(budget.used_amount),                 # ← float()
+                "remaining_amount": max(remaining, 0),
+            })
+
+        return Response(result)
 
     def put(self, request, user_id):
         data = request.data
