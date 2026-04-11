@@ -17,18 +17,37 @@ class PaymentMerchantInfo {
   final DateTime transactedAt;
   final String? logoText;
 
+  static DateTime _parseTransactionDateTime(Map<String, dynamic> json) {
+    final transactionDate = (json['transaction_date'] ?? '').toString();
+    final transactionTime = (json['transaction_time'] ?? '').toString();
+
+    if (transactionDate.isNotEmpty && transactionTime.isNotEmpty) {
+      final combined = DateTime.tryParse('${transactionDate}T$transactionTime');
+      if (combined != null) {
+        return combined;
+      }
+    }
+
+    return DateTime.tryParse(
+          (json['transacted_at'] ??
+                  json['created_at'] ??
+                  json['transaction_date'] ??
+                  '')
+              .toString(),
+        ) ??
+        DateTime.now();
+  }
+
   factory PaymentMerchantInfo.fromJson(Map<String, dynamic> json) {
     return PaymentMerchantInfo(
       name: (json['name'] ?? json['merchant_name'] ?? 'Merchant').toString(),
       accountName: (json['account_name'] ??
               json['recipient_name'] ??
+              json['merchant_PT'] ??
               json['merchant_account_name'] ??
               '-')
           .toString(),
-      transactedAt: DateTime.tryParse(
-            (json['transacted_at'] ?? json['created_at'] ?? '').toString(),
-          ) ??
-          DateTime.now(),
+      transactedAt: _parseTransactionDateTime(json),
       logoText: json['logo_text']?.toString(),
     );
   }
@@ -139,7 +158,10 @@ class PaymentConfirmationData {
       return switch (value) {
         int amount => amount,
         double amount => amount.round(),
-        String amount => int.tryParse(amount) ?? 0,
+        String amount =>
+          int.tryParse(amount) ??
+          double.tryParse(amount.replaceAll(',', '.'))?.round() ??
+          0,
         _ => 0,
       };
     }

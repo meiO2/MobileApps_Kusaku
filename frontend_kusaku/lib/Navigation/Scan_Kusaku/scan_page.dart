@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart' as ms;
 
 import 'package:frontend_kusaku/Widgets/scan_widgets.dart';
-import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
+import 'package:frontend_kusaku/config/api_config.dart';
+import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_models.dart';
+import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_page.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({
@@ -23,31 +27,22 @@ class ScanPage extends StatefulWidget {
 }
 
 class _ScanPageState extends State<ScanPage> {
+  static const String _demoQrisNumber = '011006081106';
+
   bool _isFlashOn = false;
-  bool _isGalleryOpen = false;
   bool _isBusy = false;
   bool _isScanning = false;
 
   ScanContentType _contentType = ScanContentType.qris;
-  String? _selectedGalleryId;
   String? _statusMessage;
 
-  final MobileScannerController _scannerController =
-      MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+  final ImagePicker _picker = ImagePicker();
 
-  static const List<ScanGalleryItem> _galleryItems = [
-    ScanGalleryItem(id: 'qr-1'),
-    ScanGalleryItem(id: 'qr-2'),
-    ScanGalleryItem(id: 'qr-3'),
-    ScanGalleryItem(id: 'qr-4'),
-    ScanGalleryItem(id: 'receipt-1', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-2', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-3', isReceipt: true),
-    ScanGalleryItem(id: 'receipt-4', isReceipt: true),
-  ];
-
-  String get _previewLabel =>
-      _contentType == ScanContentType.receipt ? 'Photo' : 'QRIS';
+  final ms.MobileScannerController _scannerController =
+      ms.MobileScannerController(
+        detectionSpeed: ms.DetectionSpeed.noDuplicates,
+        facing: ms.CameraFacing.back,
+      );
 
   String get _headline => _contentType == ScanContentType.receipt
       ? 'Unggah nota untuk diproses'
@@ -57,6 +52,19 @@ class _ScanPageState extends State<ScanPage> {
       ? 'Ambil gambar nota atau pilih dari galeri'
       : 'Arahkan kamera ke kode QR';
 
+  bool _isDemoQrisMatch(String rawValue) {
+    final digitsOnly = rawValue.replaceAll(RegExp(r'\D'), '');
+    return rawValue.trim() == _demoQrisNumber ||
+        digitsOnly == _demoQrisNumber ||
+        digitsOnly.contains(_demoQrisNumber);
+  }
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,18 +73,35 @@ class _ScanPageState extends State<ScanPage> {
         children: [
           // 🔥 CAMERA BACKGROUND
           if (_contentType == ScanContentType.qris)
-            MobileScanner(
+            ms.MobileScanner(
               controller: _scannerController,
-              onDetect: (BarcodeCapture capture) {
+              onDetect: (ms.BarcodeCapture capture) {
                 if (_isScanning) return;
+                final detected = capture.barcodes
+                    .map((barcode) => barcode.rawValue)
+                    .whereType<String>()
+                    .map((value) => value.trim())
+                    .firstWhere(
+                      (value) => value.isNotEmpty,
+                      orElse: () => '',
+                    );
+
                 _isScanning = true;
 
-                final barcode = capture.barcodes.first;
-                final code = barcode.rawValue;
-
-                if (code != null) {
-                  print("QR RESULT: $code");
-                  _onQRDetected(code); // Memanggil fungsi deteksi
+                if (detected.isNotEmpty) {
+                  if (_isDemoQrisMatch(detected)) {
+                    _onQRDetected(_demoQrisNumber);
+                  } else {
+                    setState(() {
+                      _statusMessage = 'QR tidak sesuai demo QRIS';
+                    });
+                    _isScanning = false;
+                  }
+                } else {
+                  setState(() {
+                    _statusMessage = 'QR kamera tidak terbaca';
+                  });
+                  _isScanning = false;
                 }
               }
             ),
@@ -102,46 +127,45 @@ class _ScanPageState extends State<ScanPage> {
                           const Expanded(
                             child: SizedBox.shrink(), // Memberikan ruang kosong agar kamera terlihat jelas
                           ),
-                          if (!_isGalleryOpen) const ScanGuidanceCard(),
-                          if (_statusMessage != null && !_isGalleryOpen)
+                          const ScanGuidanceCard(),
+                          if (_statusMessage != null)
                             ScanStatusChip(label: _statusMessage!),
                         ],
                       ),
                     ),
-                    if (!_isGalleryOpen)
-                      ScanActionBar(
-                        items: [
-                          ScanActionItem(
-                            label: _isFlashOn
-                                ? 'Flash Aktif'
-                                : 'Nyalakan\nFlash',
-                            icon: Icons.flash_on_rounded,
-                            isActive: _isFlashOn,
-                            onTap: _isBusy ? () {} : _toggleFlash,
-                          ),
-                          ScanActionItem(
-                            label: _contentType ==
-                                    ScanContentType.receipt
-                                ? 'Qris'
-                                : 'Unggah\nNota',
-                            icon: _contentType ==
-                                    ScanContentType.receipt
-                                ? Icons.qr_code_scanner_rounded
-                                : Icons.receipt_long_rounded,
-                            onTap: _isBusy
-                                ? () {}
-                                : _contentType ==
-                                        ScanContentType.receipt
-                                    ? _openQrisMode
-                                    : _openReceiptMode,
-                          ),
-                          ScanActionItem(
-                            label: 'Upload Dari\nGaleri',
-                            icon: Icons.image_outlined,
-                            onTap: _isBusy ? () {} : _openGallery,
-                          ),
-                        ],
-                      ),
+                    ScanActionBar(
+                      items: [
+                        ScanActionItem(
+                          label: _isFlashOn
+                              ? 'Flash Aktif'
+                              : 'Nyalakan\nFlash',
+                          icon: Icons.flash_on_rounded,
+                          isActive: _isFlashOn,
+                          onTap: _isBusy ? () {} : _toggleFlash,
+                        ),
+                        ScanActionItem(
+                          label: _contentType ==
+                                  ScanContentType.receipt
+                              ? 'Qris'
+                              : 'Unggah\nNota',
+                          icon: _contentType ==
+                                  ScanContentType.receipt
+                              ? Icons.qr_code_scanner_rounded
+                              : Icons.receipt_long_rounded,
+                          onTap: _isBusy
+                              ? () {}
+                              : _contentType ==
+                                      ScanContentType.receipt
+                                  ? _openQrisMode
+                                  : _openReceiptMode,
+                        ),
+                        ScanActionItem(
+                          label: 'Upload Dari\nGaleri',
+                          icon: Icons.image_outlined,
+                          onTap: _isBusy ? () {} : _openGallery,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -149,40 +173,116 @@ class _ScanPageState extends State<ScanPage> {
           ),
         ],
       ),
-      bottomSheet: _isGalleryOpen
-          ? GalleryPickerSheet(
-              items: _galleryItems,
-              selectedId: _selectedGalleryId,
-              onSelect: _selectGalleryItem,
-              onSend: _isBusy ? () {} : _sendGallerySelection,
+      bottomSheet: null,
+    );
+  }
+
+  Future<http.Response> _requestScanWithFallback(String qrisNumber) async {
+    final baseCandidates = <String>{
+      ApiConfig.baseUrl,
+      'http://127.0.0.1:8000/api/',
+      'http://localhost:8000/api/',
+      'http://10.0.2.2:8000/api/',
+    };
+
+    Object? lastError;
+
+    for (final base in baseCandidates) {
+      final normalizedBase = base.endsWith('/') ? base : '$base/';
+      final uri = Uri.parse('${normalizedBase}qr/scan/');
+
+      try {
+        final response = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'qris_number': qrisNumber}),
             )
-          : null,
+            .timeout(const Duration(seconds: 8));
+
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw Exception(
+      'Tidak bisa menghubungi backend scan QRIS${lastError != null ? ': $lastError' : ''}',
     );
   }
 
   // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
     try {
-      print("QR RESULT: $code");
-      int? userId;
-      try {
-        final data = jsonDecode(code);
-        userId = data['user_id'];
-      } catch (_) {
-        userId = int.tryParse(code);
-      }
+      final qrisNumber = code.trim().isEmpty ? _demoQrisNumber : code.trim();
 
-      if (userId == null) {
-        _showError("QR tidak valid");
+      setState(() {
+        _isBusy = true;
+        _statusMessage = 'Memverifikasi QRIS...';
+      });
+
+      final response = await _requestScanWithFallback(qrisNumber);
+
+      final dynamic payload = response.body.isEmpty
+          ? null
+          : jsonDecode(response.body);
+      final body = payload is Map<String, dynamic>
+          ? payload
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200) {
+        await _openPaymentConfirmation(body);
       } else {
-        // Logika navigasi bisa ditaruh di sini
+        _showError(
+          (body['error'] ?? body['detail'] ?? 'QRIS tidak valid atau tidak terdaftar').toString(),
+        );
       }
     } catch (e) {
-      _showError("Gagal scan QR");
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
       await Future.delayed(const Duration(seconds: 2));
       _isScanning = false;
     }
+  }
+
+  int _parseAmount(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.round();
+    if (value is String) {
+      final normalized = value.replaceAll(',', '.');
+      final decimalValue = double.tryParse(normalized);
+      if (decimalValue != null) return decimalValue.round();
+    }
+    return 0;
+  }
+
+  Future<void> _openPaymentConfirmation(Map<String, dynamic> body) async {
+    final remainingBalance = _parseAmount(body['remaining_balance']);
+
+    final data = PaymentConfirmationData.fromJson(
+      body,
+      categories: [
+        PaymentCategoryData(
+          id: 'food-drink',
+          name: 'Makan & Minum',
+          remainingAmount: remainingBalance,
+          icon: Icons.fastfood_rounded,
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PaymentConfirmationPage(data: data)),
+    );
   }
 
   void _showError(String message) {
@@ -206,7 +306,6 @@ class _ScanPageState extends State<ScanPage> {
   Future<void> _openReceiptMode() async {
     setState(() {
       _contentType = ScanContentType.receipt;
-      _isGalleryOpen = false;
       _statusMessage = 'Mode nota aktif';
     });
 
@@ -216,7 +315,6 @@ class _ScanPageState extends State<ScanPage> {
   Future<void> _openQrisMode() async {
     setState(() {
       _contentType = ScanContentType.qris;
-      _isGalleryOpen = false;
       _statusMessage = 'Mode QRIS aktif';
     });
 
@@ -224,29 +322,42 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   // 🖼️ GALLERY
-  void _openGallery() {
-    setState(() {
-      _isGalleryOpen = true;
-      _selectedGalleryId ??= _galleryItems.first.id;
-    });
-  }
-
-  void _selectGalleryItem(ScanGalleryItem item) {
-    setState(() {
-      _selectedGalleryId = item.id;
-    });
-  }
-
-  Future<void> _sendGallerySelection() async {
-    final selectedItem = _galleryItems.firstWhere(
-      (item) => item.id == _selectedGalleryId,
-      orElse: () => _galleryItems.first,
-    );
-
-    await widget.onGallerySubmitted?.call(selectedItem);
+  Future<void> _openGallery() async {
+    if (_isBusy) return;
 
     setState(() {
-      _isGalleryOpen = false;
+      _isBusy = true;
+      _statusMessage = 'Membuka galeri...';
     });
+
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null) {
+        setState(() {
+          _statusMessage = 'Pemilihan gambar dibatalkan';
+        });
+        return;
+      }
+      setState(() {
+        _statusMessage = 'Gambar dipilih, memverifikasi QRIS demo...';
+      });
+
+      await widget.onGallerySubmitted?.call(const ScanGalleryItem(id: 'gallery-upload'));
+      _isScanning = true;
+      _onQRDetected(_demoQrisNumber);
+    } catch (_) {
+      setState(() {
+        _statusMessage = 'Gagal membaca gambar, menggunakan QRIS demo';
+      });
+
+      _isScanning = true;
+      _onQRDetected(_demoQrisNumber);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
   }
 }
