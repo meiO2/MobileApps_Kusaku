@@ -15,15 +15,20 @@ from .serializers import (
 from kusakustamp.models import UserStamp
 from users.models import Account
 
+
 class CategoryListView(APIView):
 
     def get(self, request):
         categories = Category.objects.filter(user=request.user)
         return Response(CategorySerializer(categories, many=True).data)
 
-from .models import Category, CategoryBudget
 
 class CategoryUpdateView(APIView):
+    """
+    Called by ChatSiPintar when the user sets/updates their budget.
+    This is the ONLY place that writes allocated_amount.
+    It calculates from current total_income and saves it permanently.
+    """
 
     def post(self, request, pk):
         print("REQUEST DATA:", request.data)
@@ -31,7 +36,6 @@ class CategoryUpdateView(APIView):
         user = get_object_or_404(Account, pk=pk)
         categories = request.data.get("categories", [])
 
-        from django.db.models import Sum
         total_income = Income.objects.filter(user=user).aggregate(
             total=Sum('amount')
         )['total'] or 0
@@ -40,7 +44,6 @@ class CategoryUpdateView(APIView):
 
         for cat_data in categories:
             cat_id = cat_data.get("id")
-
             category = get_object_or_404(Category, pk=cat_id, user=user)
 
             category.is_active = cat_data.get("enabled", category.is_active)
@@ -53,7 +56,7 @@ class CategoryUpdateView(APIView):
 
             percentage = cat_data.get("percentage", budget.percentage)
             budget.percentage = percentage
-            budget.allocated_amount = (percentage / 100) * float(total_income)  # ← add float()
+            budget.allocated_amount = (percentage / 100) * float(total_income)
             budget.save()
 
             updated.append({
@@ -65,15 +68,16 @@ class CategoryUpdateView(APIView):
 
         return Response(updated)
 
+
 class BudgetView(APIView):
 
     def get(self, request, user_id):
-        from django.db.models import Sum
-
-        total_income = Income.objects.filter(user_id=user_id).aggregate(
-            total=Sum('amount')
-        )['total'] or 0
-
+        """
+        ✅ FIXED: No longer recalculates allocated_amount from income.
+        Reads the saved allocated_amount directly from the database.
+        This means budgets only change when the user explicitly resets
+        them via ChatSiPintar (CategoryUpdateView.post).
+        """
         budgets = CategoryBudget.objects.filter(
             user_id=user_id,
             category__is_active=True,
@@ -82,21 +86,27 @@ class BudgetView(APIView):
 
         result = []
         for budget in budgets:
-            allocated = (budget.percentage / 100) * float(total_income)  # ← float()
-            remaining = allocated - float(budget.used_amount)             # ← float()
+            allocated = float(budget.allocated_amount)  # ✅ use saved value, no recalculation
+            used = float(budget.used_amount)
+            remaining = max(allocated - used, 0)
+
             result.append({
                 "category": {
                     "name": budget.category.name,
                 },
                 "percentage": budget.percentage,
                 "allocated_amount": allocated,
-                "used_amount": float(budget.used_amount),                 # ← float()
-                "remaining_amount": max(remaining, 0),
+                "used_amount": used,
+                "remaining_amount": remaining,
             })
 
         return Response(result)
 
     def put(self, request, user_id):
+        """
+        Manual bulk update of budget percentages.
+        Also recalculates and saves allocated_amount based on current income.
+        """
         data = request.data
 
         if not isinstance(data, list):
@@ -111,10 +121,10 @@ class BudgetView(APIView):
                 {"error": "Total percentage must be between 0 and 100"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         total_income = Income.objects.filter(user_id=user_id).aggregate(
-                    total=Sum('amount')
-                )['total'] or 0
+            total=Sum('amount')
+        )['total'] or 0
 
         with transaction.atomic():
             budgets = []
@@ -125,15 +135,13 @@ class BudgetView(APIView):
 
                 percentage = item.get("percentage", budget.percentage)
                 budget.percentage = percentage
-
-                budget.allocated_amount = (percentage / 100) * total_income
-
+                budget.allocated_amount = (percentage / 100) * float(total_income)
                 budgets.append(budget)
 
             total_allocated = sum(b.allocated_amount for b in budgets)
-            leftover = total_income - total_allocated
+            leftover = float(total_income) - total_allocated
 
-            if leftover > 0:
+            if leftover > 0 and budgets:
                 extra_per_budget = leftover / len(budgets)
                 for b in budgets:
                     b.allocated_amount += extra_per_budget
@@ -146,14 +154,18 @@ class BudgetView(APIView):
             status=status.HTTP_200_OK
         )
 
+
 class BalanceView(APIView):
+
     def get(self, request, user_id):
         total_income = Income.objects.filter(user_id=user_id).aggregate(
             total=Sum('amount')
         )['total'] or 0
 
         expenses = Expense.objects.filter(user_id=user_id)
-        total_expense = sum(e.total_payment + e.transaction_fee for e in expenses)
+        total_expense = sum(
+            float(e.total_payment) + float(e.transaction_fee) for e in expenses
+        )
 
         sent_transfers = Transfer.objects.filter(sender_id=user_id).aggregate(
             total=Sum('amount')
@@ -171,16 +183,18 @@ class BalanceView(APIView):
             total=Sum('points_used')
         )['total'] or 0
 
-        balance = total_income - total_expense - sent_transfers + received_transfers
+        balance = float(total_income) - total_expense - float(sent_transfers) + float(received_transfers)
 
         return Response({
-            "total_income": total_income,
+            "total_income": float(total_income),
             "total_expense": total_expense,
             "balance": balance,
-            "kusaku_points": points_earned - points_spent,
+            "kusaku_points": int((points_earned or 0) - (points_spent or 0)),
         })
 
+
 class ExpenseView(APIView):
+
     def get(self, request, user_id):
         expenses = Expense.objects.filter(user_id=user_id)
         return Response(ExpenseSerializer(expenses, many=True).data)
@@ -190,18 +204,23 @@ class ExpenseView(APIView):
         if serializer.is_valid():
             expense = serializer.save(user_id=user_id)
 
-            budget = CategoryBudget.objects.get(
-                user_id=user_id,
-                category=expense.category
-            )
+            try:
+                budget = CategoryBudget.objects.get(
+                    user_id=user_id,
+                    category=expense.category
+                )
+            except CategoryBudget.DoesNotExist:
+                # Expense saved, but no budget set for this category — that's fine
+                return Response(serializer.data, status=201)
 
-            total_spent = expense.total_payment + expense.transaction_fee
-            budget.used_amount += total_spent
+            total_spent = float(expense.total_payment) + float(expense.transaction_fee)
+            budget.used_amount = float(budget.used_amount) + total_spent
             budget.save()
 
             return Response(serializer.data, status=201)
 
         return Response(serializer.errors, status=400)
+
 
 class IncomeView(APIView):
 
@@ -216,6 +235,7 @@ class IncomeView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+
 class TransferView(APIView):
 
     def post(self, request, user_id):
@@ -224,14 +244,12 @@ class TransferView(APIView):
         amount = request.data.get('amount')
         notes = request.data.get('notes', '')
 
-        # Validate fields
         if not all([sender_phone, recipient_phone, amount]):
             return Response(
                 {"error": "sender_phone, recipient_phone, dan amount wajib diisi"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validate sender matches user_id
         try:
             sender = Account.objects.get(id=user_id, phone_number=sender_phone)
         except Account.DoesNotExist:
@@ -240,7 +258,6 @@ class TransferView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Find recipient
         try:
             recipient = Account.objects.get(phone_number=recipient_phone)
         except Account.DoesNotExist:
@@ -255,13 +272,14 @@ class TransferView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Check sender balance
         total_income = Income.objects.filter(user=sender).aggregate(
             total=Sum('amount')
         )['total'] or 0
 
         expenses = Expense.objects.filter(user=sender)
-        total_expense = sum(e.total_payment + e.transaction_fee for e in expenses)
+        total_expense = sum(
+            float(e.total_payment) + float(e.transaction_fee) for e in expenses
+        )
 
         sent_transfers = Transfer.objects.filter(sender=sender).aggregate(
             total=Sum('amount')
@@ -271,18 +289,19 @@ class TransferView(APIView):
             total=Sum('amount')
         )['total'] or 0
 
-        balance = total_income - total_expense - sent_transfers + received_transfers
+        balance = (
+            float(total_income)
+            - total_expense
+            - float(sent_transfers)
+            + float(received_transfers)
+        )
 
         if balance < float(amount):
             return Response(
-                {
-                    "error": "Saldo tidak cukup",
-                    "balance": balance,
-                },
+                {"error": "Saldo tidak cukup", "balance": balance},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create transfer record
         with transaction.atomic():
             transfer = Transfer.objects.create(
                 sender=sender,
@@ -291,7 +310,6 @@ class TransferView(APIView):
                 notes=notes,
             )
 
-            # Add as income for recipient
             Income.objects.create(
                 user=recipient,
                 amount=amount,
@@ -307,21 +325,21 @@ class TransferView(APIView):
             "remaining_balance": balance - float(amount),
         }, status=status.HTTP_201_CREATED)
 
+
 class UserCategoryBudgetView(APIView):
 
     def get(self, request, user_id):
         user = get_object_or_404(Account, pk=user_id)
 
         categories = Category.objects.filter(user=user)
+        budgets_map = {
+            b.category_id: b
+            for b in CategoryBudget.objects.filter(user=user, category__in=categories)
+        }
 
         result = []
-
         for cat in categories:
-            budget = CategoryBudget.objects.filter(
-                user=user,
-                category=cat
-            ).first()
-
+            budget = budgets_map.get(cat.id)
             result.append({
                 "id": cat.id,
                 "name": cat.name,

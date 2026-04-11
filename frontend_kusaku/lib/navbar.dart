@@ -5,8 +5,6 @@ import 'Navigation/Scan_Kusaku/scan_page.dart';
 import 'Navigation/History_Kusaku/history_page.dart';
 import 'Navigation/ProfilePage_Kusaku/profile_page.dart';
 
-// nanti ini semua musti di redirect posisi folder/filenya, cmn gua jujur lagi prioritasin ini jalan aja dlu
-//oh untungnya flutter sendiri udah benerin selama gua pindahinnya bener, LET'S FUCKING GOOOO
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});

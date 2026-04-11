@@ -305,7 +305,6 @@ class _FinancePageState extends State<FinancePage> {
   }
 }
 
-// ── Supporting widgets & data classes ──────────────────────────────────────
 
 class _DayCell extends StatelessWidget {
   final _CalendarDay day;
@@ -349,7 +348,6 @@ class _DayCell extends StatelessWidget {
   }
 }
 
-// ✅ Rewritten to accept individual fields instead of _BudgetCategory object
 class _CategoryTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
