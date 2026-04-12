@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/topup_pulsa_page.dart';
+import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/topup_pulsa_page.dart'; // ✅ ADD THIS BACK
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend_kusaku/config/api_config.dart';
@@ -86,7 +86,15 @@ class _TransferApi {
 
 
 class TransferPage extends StatefulWidget {
-  const TransferPage({super.key});
+  // ✅ NEW: optional pre-filled recipient from QR scan
+  final String? prefilledRecipientPhone;
+  final String? prefilledRecipientName;
+
+  const TransferPage({
+    super.key,
+    this.prefilledRecipientPhone,
+    this.prefilledRecipientName,
+  });
 
   @override
   State<TransferPage> createState() => _TransferPageState();
@@ -173,6 +181,18 @@ class _TransferPageState extends State<TransferPage> {
       }
     }
     _loadRecentRecipients();
+
+    // ✅ NEW: If opened from QR scan, skip straight to enterDetails
+    final prefPhone = widget.prefilledRecipientPhone;
+    final prefName  = widget.prefilledRecipientName;
+    if (prefPhone != null && prefPhone.isNotEmpty) {
+      setState(() {
+        _selectedMethod = 'Kusaku';
+        _recipientCode  = prefPhone;
+        _recipientName  = prefName ?? '';
+        _step           = _TransferStep.enterDetails;
+      });
+    }
   }
 
   Future<void> _loadRecentRecipients() async {
@@ -281,7 +301,13 @@ class _TransferPageState extends State<TransferPage> {
           _step = _TransferStep.selectMethod;
           break;
         case _TransferStep.enterDetails:
-          _step = _TransferStep.selectRecipient; break;
+          // ✅ NEW: If came from QR scan, pressing back exits the page entirely
+          if (widget.prefilledRecipientPhone != null) {
+            Navigator.of(context).pop();
+          } else {
+            _step = _TransferStep.selectRecipient;
+          }
+          break;
         case _TransferStep.confirm:
           _step = _TransferStep.enterDetails; break;
         case _TransferStep.pinVerify:
@@ -457,7 +483,6 @@ class _TransferPageState extends State<TransferPage> {
               style: const TextStyle(color: Colors.white),
               onChanged: (v) {
                 setState(() {});
-                // Simple debounce: lookup 600 ms after user stops typing
                 Future.delayed(const Duration(milliseconds: 600), () {
                   if (_searchController.text == v) _lookupRecipient(v);
                 });

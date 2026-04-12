@@ -72,12 +72,6 @@ class CategoryUpdateView(APIView):
 class BudgetView(APIView):
 
     def get(self, request, user_id):
-        """
-        ✅ FIXED: No longer recalculates allocated_amount from income.
-        Reads the saved allocated_amount directly from the database.
-        This means budgets only change when the user explicitly resets
-        them via ChatSiPintar (CategoryUpdateView.post).
-        """
         budgets = CategoryBudget.objects.filter(
             user_id=user_id,
             category__is_active=True,
@@ -86,7 +80,7 @@ class BudgetView(APIView):
 
         result = []
         for budget in budgets:
-            allocated = float(budget.allocated_amount)  # ✅ use saved value, no recalculation
+            allocated = float(budget.allocated_amount)
             used = float(budget.used_amount)
             remaining = max(allocated - used, 0)
 
@@ -210,7 +204,6 @@ class ExpenseView(APIView):
                     category=expense.category
                 )
             except CategoryBudget.DoesNotExist:
-                # Expense saved, but no budget set for this category — that's fine
                 return Response(serializer.data, status=201)
 
             total_spent = float(expense.total_payment) + float(expense.transaction_fee)
@@ -302,30 +295,11 @@ class TransferView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # ✅ FIXED: Only create the Transfer record.
+        # Do NOT create Expense for sender or Income for recipient here —
+        # BalanceView already accounts for transfers via sent_transfers /
+        # received_transfers, so creating those records would double-count.
         with transaction.atomic():
-            # Income for recipient
-            Income.objects.create(
-                user=recipient,
-                amount=amount,
-                title=f"Transfer dari {sender.phone_number}",
-                description=notes,
-            )
-            
-            # Expense for sender (deduct balance)
-            try:
-                category = Category.objects.filter(user=sender).first()
-                Expense.objects.create(
-                    user=sender,
-                    category=category,
-                    receiver=f"Transfer ke {recipient.phone_number}",
-                    total_payment=amount,
-                    transaction_fee=0,
-                    notes=notes,
-                )
-            except:
-                # Fallback if no category
-                pass
-
             transfer = Transfer.objects.create(
                 sender=sender,
                 recipient=recipient,

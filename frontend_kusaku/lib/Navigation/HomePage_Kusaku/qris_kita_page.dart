@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:frontend_kusaku/config/api_config.dart';
+import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
 
 class QrisKitaPage extends StatelessWidget {
   final int userId;
@@ -8,6 +12,57 @@ class QrisKitaPage extends StatelessWidget {
     super.key,
     required this.userId,
   });
+
+  // Lookup user by ID → returns _Recipient-compatible data
+  Future<Map<String, String>?> _lookupUserById(int id) async {
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}users/profile/$id/');
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return {
+          'phone': data['phone_number'] as String? ?? '',
+          'name':  data['username']     as String? ?? '',
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _onQrScanned(BuildContext context, String rawValue) async {
+    final scannedId = int.tryParse(rawValue.trim());
+    if (scannedId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('QR tidak valid')),
+      );
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final user = await _lookupUserById(scannedId);
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // dismiss loading
+
+    if (user == null || user['phone']!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengguna tidak ditemukan')),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TransferPage(
+        prefilledRecipientPhone: user['phone'],
+        prefilledRecipientName:  user['name'],
+      ),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +87,7 @@ class QrisKitaPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ✅ QR container
+              // QR container
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -47,24 +102,13 @@ class QrisKitaPage extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: QrImageView(
-                    data: userId.toString(), // 🔥 ISI QR
+                    data: userId.toString(),
                     version: QrVersions.auto,
                   ),
                 ),
               ),
 
               const SizedBox(height: 20),
-
-              Text(
-                'User ID: $userId',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF6B7280),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
               const Text(
                 'Tinggal Scan dan Bayar',
                 style: TextStyle(

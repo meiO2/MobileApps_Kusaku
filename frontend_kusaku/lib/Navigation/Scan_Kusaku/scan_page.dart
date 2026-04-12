@@ -9,6 +9,7 @@ import 'package:frontend_kusaku/Widgets/scan_widgets.dart';
 import 'package:frontend_kusaku/config/api_config.dart';
 import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_models.dart';
 import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_page.dart';
+import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({
@@ -147,10 +148,47 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
-  // 🔥 QR DETECTION
   void _onQRDetected(String code) async {
     try {
       final qrisNumber = code.trim();
+
+      // ✅ NEW: Check if it's a Kusaku user QR (plain integer = user ID)
+      final scannedUserId = int.tryParse(qrisNumber);
+      if (scannedUserId != null) {
+        setState(() {
+          _isBusy = true;
+          _statusMessage = 'Mencari pengguna...';
+        });
+
+        final uri = Uri.parse('${ApiConfig.baseUrl}users/profile/$scannedUserId/');
+        final res = await http.get(uri);
+
+        if (!mounted) return;
+
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final phone = data['phone_number'] as String? ?? '';
+          final name  = data['username']     as String? ?? '';
+
+          if (phone.isEmpty) {
+            _showError('Pengguna tidak ditemukan');
+            return;
+          }
+
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TransferPage(
+                prefilledRecipientPhone: phone,
+                prefilledRecipientName:  name,
+              ),
+            ),
+          );
+        } else {
+          _showError('Pengguna tidak ditemukan');
+        }
+
+        return;
+      }
 
       setState(() {
         _isBusy = true;
@@ -269,9 +307,6 @@ class _ScanPageState extends State<ScanPage> {
 
       setState(() => _statusMessage = 'Membaca QR dari gambar...');
 
-      // analyzeImage returns bool in newer mobile_scanner versions.
-      // The decoded barcode fires on the barcodes stream, so we use
-      // a Completer to await it with a timeout.
       final completer = Completer<String?>();
       late StreamSubscription<ms.BarcodeCapture> sub;
 
