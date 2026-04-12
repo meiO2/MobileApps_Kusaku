@@ -30,12 +30,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+  http: ^1.1.0
+  shared_preferences: ^2.2.0
+  image_picker: ^1.0.7
+
+  # Nambah permission buat nanti di android emulator pake image picker sm default keyboard (tapi keyboard belom)
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
+
+  local_auth: ^2.3.0
+
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^3.5.5
+  google_mlkit_barcode_scanning: ^0.13.0
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +73,14 @@ flutter:
     - assets/images/Logo.png
     - assets/images/KUSAKU.png
     - assets/images/Ayo Atur Pengeluaranmu!.png
+    - assets/images/banner/
+    - assets/images/topup/
+    - assets/images/activity/
+    - assets/images/keuntungan/
+    - assets/images/panduan/
+    - assets/images/Vector.png
+    - assets/images/nota.png
+    - assets/images/starbucek.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
