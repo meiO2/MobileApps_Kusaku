@@ -7,7 +7,9 @@ from .views import (
     ExpenseView,
     IncomeView,
     TransferView,
-    UserCategoryBudgetView
+    UserCategoryBudgetView,
+    TransferHistoryView,
+    TransferLookupView
 )
 
 urlpatterns = [
@@ -22,4 +24,8 @@ urlpatterns = [
     path('transfer/<int:user_id>/', TransferView.as_view()),
 
     path('categories/<int:user_id>/', UserCategoryBudgetView.as_view()),
+    
+    path('transfer/<int:user_id>/', TransferView.as_view()),
+    path('transfer/<int:user_id>/history/', TransferHistoryView.as_view()),
+    path('transfer/lookup/', TransferLookupView.as_view()),
 ]

@@ -303,18 +303,34 @@ class TransferView(APIView):
             )
 
         with transaction.atomic():
-            transfer = Transfer.objects.create(
-                sender=sender,
-                recipient=recipient,
-                amount=amount,
-                notes=notes,
-            )
-
+            # Income for recipient
             Income.objects.create(
                 user=recipient,
                 amount=amount,
                 title=f"Transfer dari {sender.phone_number}",
                 description=notes,
+            )
+            
+            # Expense for sender (deduct balance)
+            try:
+                category = Category.objects.filter(user=sender).first()
+                Expense.objects.create(
+                    user=sender,
+                    category=category,
+                    receiver=f"Transfer ke {recipient.phone_number}",
+                    total_payment=amount,
+                    transaction_fee=0,
+                    notes=notes,
+                )
+            except:
+                # Fallback if no category
+                pass
+
+            transfer = Transfer.objects.create(
+                sender=sender,
+                recipient=recipient,
+                amount=amount,
+                notes=notes,
             )
 
         return Response({
@@ -348,3 +364,46 @@ class UserCategoryBudgetView(APIView):
             })
 
         return Response(result)
+
+
+class TransferLookupView(APIView):
+    """Resolve a phone number to a display name before transfer."""
+    def get(self, request):
+        phone = request.query_params.get('phone')
+        if not phone:
+            return Response({"error": "phone required"}, status=400)
+        try:
+            account = Account.objects.get(phone_number=phone)
+            return Response({
+                "phone_number": account.phone_number,
+                "name": account.username,
+            })
+        except Account.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
+
+
+class TransferHistoryView(APIView):
+    """List sent and received transfers for a user."""
+    def get(self, request, user_id):
+        sent = Transfer.objects.filter(sender_id=user_id).select_related('recipient')
+        received = Transfer.objects.filter(recipient_id=user_id).select_related('sender')
+
+        def fmt(t, direction):
+            counterpart = t.recipient if direction == 'sent' else t.sender
+            return {
+                "id": t.id,
+                "direction": direction,
+                "counterpart_phone": counterpart.phone_number,
+                "counterpart_name": counterpart.username,
+                "amount": float(t.amount),
+                "notes": t.notes,
+                "date": t.date.isoformat(),
+            }
+
+        history = (
+            [fmt(t, 'sent') for t in sent] +
+            [fmt(t, 'received') for t in received]
+        )
+        history.sort(key=lambda x: x['date'], reverse=True)
+
+        return Response(history)

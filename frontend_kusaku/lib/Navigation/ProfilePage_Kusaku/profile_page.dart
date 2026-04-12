@@ -47,10 +47,12 @@ class _ProfilePageState extends State<ProfilePage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        setState(() {
-          _username = data['username'] ?? "No Name";
-          _phone = data['phone_number'] ?? "-";
-        });
+        _username = data['username'] ?? "No Name";
+        _phone = data['phone_number'] ?? "-";
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('phone_number', data['phone_number'] ?? '');
+        await prefs.setString('full_name', data['username'] ?? '');
+        if (mounted) setState(() {});
       } else {
         print("Failed: ${response.body}");
       }
