@@ -38,6 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadLastSession() async {
+    await TransactionPinStore.loadFromPrefs();
+
     final prefs = await SharedPreferences.getInstance();
     final savedUsername = prefs.getString('last_username');
     if (savedUsername != null) {
@@ -79,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
+      await prefs.setBool('is_authenticated', true);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
@@ -95,7 +98,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // --- API LOGIC: CONNECTING TO DJANGO ---
   Future<void> _handleLogin() async {
     final String username = _usernameController.text.trim();
     final String password = _passwordController.text.trim();
@@ -108,7 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Hits your Django Login View
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}users/login/'),
         headers: {'Content-Type': 'application/json'},
@@ -121,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // PERSISTENCE: Save session data locally
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('last_username', username);
-        await prefs.setInt('user_id', data['user_id']); 
+        await prefs.setInt('user_id', data['user_id']);
+        await prefs.setBool('is_authenticated', true);
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
@@ -151,8 +152,10 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: KusakuColors.backgroundBlue,
       bottomNavigationBar: KusakuBottomPinPanel(
         onPressed: () async {
-          // PIN Path: Only works if a username is in the controller (already logged in once)
-          if (_usernameController.text.isEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          final savedUsername = prefs.getString('last_username');
+
+          if (savedUsername == null) {
             _showSnackBar('Please login with your password first.');
             return;
           }
@@ -169,10 +172,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (!mounted || pin == null) return;
 
-          // Check PIN against your local TransactionPinStore
           if (pin == TransactionPinStore.pin) {
+            await prefs.setBool('is_authenticated', true);
+            if (!mounted) return;
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MainShell()), 
+              MaterialPageRoute(builder: (_) => const MainShell()),
             );
           } else {
             _showSnackBar('PIN salah. Silakan coba lagi.');
@@ -248,41 +252,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 14),
                           Center(
                             child: _isLoading
-                              ? const CircularProgressIndicator()
-                              : KusakuGradientButton(
-                                  text: 'Log in',
-                                  onPressed: _handleLogin,
-                                ),
-                          ),
-
-                          // Add this below:
-                          FutureBuilder<SharedPreferences>(
-                            future: SharedPreferences.getInstance(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) return const SizedBox();
-                              final enabled = snapshot.data!.getBool('fingerprint_enabled') ?? false;
-                              final hasSession = snapshot.data!.getInt('user_id') != null;
-                              if (!enabled || !hasSession) return const SizedBox();
-                              return Column(
-                                children: [
-                                  const SizedBox(height: 12),
-                                  GestureDetector(
-                                    onTap: _loginWithFingerprint,
-                                    child: const Icon(
-                                      Icons.fingerprint,
-                                      size: 48,
-                                      color: Color(0xFF1D4ED8),
-                                    ),
+                                ? const CircularProgressIndicator()
+                                : KusakuGradientButton(
+                                    text: 'Log in',
+                                    onPressed: _handleLogin,
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Login dengan sidik jari',
-                                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-                                  ),
-                                ],
-                              );
-                            },
                           ),
+                          // FIX 2: Fingerprint icon removed — runs silently on app init
                           const SizedBox(height: 20),
                           const Divider(
                             thickness: 2,

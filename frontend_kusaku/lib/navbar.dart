@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'Navigation/HomePage_Kusaku/home_page.dart';
 import 'Navigation/Finance_Kusaku/finance_page.dart';
 import 'Navigation/Scan_Kusaku/scan_page.dart';
 import 'Navigation/History_Kusaku/history_page.dart';
 import 'Navigation/ProfilePage_Kusaku/profile_page.dart';
-
+import 'Screens/Login_Screen-frontend/login_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -13,15 +14,42 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
     const HomePage(),
-    const FinancePage(),  
-    const HistoryPage(),   
+    const FinancePage(),
+    const HistoryPage(),
     const ProfilePage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Fires when the app is backgrounded or fully closed.
+  /// We clear is_authenticated so the next open forces re-auth.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _clearSession();
+    }
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_authenticated', false);
+  }
 
   void _onNavTapped(int index) {
     if (index == 2) {
@@ -79,7 +107,7 @@ class _KusakuNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         child: SizedBox(
-          height: 64,
+          height: 100,
           child: Row(
             children: [
               _NavItem(
@@ -97,39 +125,38 @@ class _KusakuNavBar extends StatelessWidget {
                 onTap: () => onTap(1),
               ),
               Expanded(
-                child: 
-                Transform.translate(
+                child: Transform.translate(
                   offset: const Offset(0, -20),
                   child: GestureDetector(
-                  onTap: () => onTap(2),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1D4ED8),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0x441D4ED8),
-                              blurRadius: 10,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
+                    onTap: () => onTap(2),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1D4ED8),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0x441D4ED8),
+                                blurRadius: 10,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.crop_free_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.crop_free_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
               _NavItem(
                 icon: Icons.history_outlined,
                 activeIcon: Icons.history,

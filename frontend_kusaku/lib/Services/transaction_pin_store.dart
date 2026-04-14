@@ -1,11 +1,26 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 class TransactionPinStore {
+  static const _key = 'transaction_pin';
   static String? _pin;
 
   static String? get pin => _pin;
-
   static bool get hasPin => _pin != null && _pin!.isNotEmpty;
 
-  static void setPin(String value) {
+  static Future<void> loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    _pin = prefs.getString(_key);
+  }
+
+  static Future<void> setPin(String value) async {
     _pin = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, value);
+  }
+
+  static Future<void> clearPin() async {
+    _pin = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
   }
 }

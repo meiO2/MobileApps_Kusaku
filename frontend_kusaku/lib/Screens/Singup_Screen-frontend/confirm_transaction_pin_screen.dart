@@ -90,7 +90,7 @@ class _ConfirmTransactionPinScreenState
     try {
       await _registerUser();
 
-      TransactionPinStore.setPin(_confirmPin);
+      await TransactionPinStore.setPin(_confirmPin);
       UserCredentialsStore.setCredentials(
         username: widget.username,
         password: widget.password,

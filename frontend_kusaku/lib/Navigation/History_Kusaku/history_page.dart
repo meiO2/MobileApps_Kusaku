@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend_kusaku/Navigation/History_Kusaku/history_models.dart';
 import 'package:frontend_kusaku/Navigation/History_Kusaku/history_utils.dart';
 import 'package:frontend_kusaku/Widgets/history_widgets.dart';
+import 'dart:async';
 import '../../config/api_config.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -24,6 +25,9 @@ class _HistoryPageState extends State<HistoryPage> {
   String? _error;
   List<HistoryTransaction> _transactions = [];
 
+  bool _isPolling = false;
+  Timer? _pollTimer;
+
   List<HistorySection> get _visibleSections => buildHistorySections(
         transactions: _transactions,
         selectedTab: _selectedTab,
@@ -38,13 +42,14 @@ class _HistoryPageState extends State<HistoryPage> {
     return sorted.first.occurredAt;
   }
 
-  @override
+@override
   void initState() {
     super.initState();
     // keep filter init here, just remove _fetchTransactions()
     final initialFilter = HistoryFilterDraft.initial(now: DateTime.now());
     _appliedFilter = initialFilter;
     _filterDraft = initialFilter;
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollData());
   }
 
   @override
@@ -221,7 +226,7 @@ class _HistoryPageState extends State<HistoryPage> {
     });
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
@@ -235,19 +240,28 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_error != null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF3F4F6),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        body: RefreshIndicator(
+          onRefresh: _fetchTransactions,
+          child: ListView(
             children: [
-              const Icon(Icons.wifi_off, size: 48, color: Color(0xFF9CA3AF)),
-              const SizedBox(height: 12),
-              Text(_error!,
-                  style: const TextStyle(color: Color(0xFF6B7280))),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: _fetchTransactions,
-                child: const Text('Coba Lagi'),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.4),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.wifi_off, size: 48, color: Color(0xFF9CA3AF)),
+                    const SizedBox(height: 12),
+                    Text(_error!,
+                        style: const TextStyle(color: Color(0xFF6B7280))),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _fetchTransactions,
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ],
+                ),
               ),
+              SizedBox(height: MediaQuery.of(context).size.height * 0.4),
             ],
           ),
         ),
@@ -256,41 +270,60 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                HistoryTopSection(
-                  onFilterPressed: _openFilter,
-                ),
-                Expanded(
-                  child: HistoryTransactionList(
-                    sections: _visibleSections,
-                    isDimmed: _showFilterOverlay,
-                    selectedTab: _selectedTab,
-                    onTabSelected: _handleTabChange,
+      body: RefreshIndicator(
+        onRefresh: _fetchTransactions,
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  HistoryTopSection(
+                    onFilterPressed: _openFilter,
+                  ),
+                  Expanded(
+                    child: HistoryTransactionList(
+                      sections: _visibleSections,
+                      isDimmed: _showFilterOverlay,
+                      selectedTab: _selectedTab,
+                      onTabSelected: _handleTabChange,
+                    ),
+                  ),
+                ],
+              ),
+              if (_showFilterOverlay)
+                Positioned.fill(
+                  child: HistoryFilterOverlay(
+                    draft: _filterDraft,
+                    onClose: _closeFilter,
+                    onSubmit: _applyFilter,
+                    onCategorySelected: _selectCategory,
+                    onDateFieldTap: _openDatePicker,
+                    onDatePickerCancelled: _cancelDatePicker,
+                    onMonthChanged: _changeCalendarMonth,
+                    onDaySelected: _selectCalendarDay,
                   ),
                 ),
-              ],
-            ),
-            if (_showFilterOverlay)
-              Positioned.fill(
-                child: HistoryFilterOverlay(
-                  draft: _filterDraft,
-                  onClose: _closeFilter,
-                  onSubmit: _applyFilter,
-                  onCategorySelected: _selectCategory,
-                  onDateFieldTap: _openDatePicker,
-                  onDatePickerCancelled: _cancelDatePicker,
-                  onMonthChanged: _changeCalendarMonth,
-                  onDaySelected: _selectCalendarDay,
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _pollData() async {
+    if (_isPolling) return;
+    _isPolling = true;
+    try {
+      await _fetchTransactions();
+    } finally {
+      _isPolling = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 }

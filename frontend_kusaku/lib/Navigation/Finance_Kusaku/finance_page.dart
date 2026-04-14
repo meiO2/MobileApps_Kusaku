@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend_kusaku/Navigation/Finance_Kusaku/chat_si_pintar_page.dart';
 import 'package:frontend_kusaku/services/finance_service.dart';
+import 'dart:async';
 
 class FinancePage extends StatefulWidget {
   const FinancePage({super.key});
@@ -15,6 +16,8 @@ class _FinancePageState extends State<FinancePage> {
   double _totalIncome = 0;
   List<dynamic> _budgets = [];
   bool _isLoading = true;
+  bool _isPolling = false;
+  Timer? _pollTimer;
 
   static const Map<String, IconData> _iconMap = {
     'Kebutuhan Rumah': Icons.home_outlined,
@@ -31,6 +34,7 @@ class _FinancePageState extends State<FinancePage> {
   @override
   void initState() {
     super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollData());
   }
 
   @override
@@ -84,7 +88,7 @@ class _FinancePageState extends State<FinancePage> {
   String _getDaysRemainingLabel() {
     final now = DateTime.now();
     final lastDay = DateTime(now.year, now.month + 1, 0);
-    final remaining = lastDay.difference(now).inDays;
+    final remaining = lastDay.difference(now).inDays + 1;
     final monthName = [
       '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
@@ -139,10 +143,11 @@ class _FinancePageState extends State<FinancePage> {
         ),
       ),
 
-      body: SafeArea(
-        child: Column(
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
           children: [
-            // ── Header — doc 1 light blue ──
+            // ── Header ──
             Container(
               width: double.infinity,
               color: const Color.fromARGB(255, 233, 246, 255),
@@ -247,7 +252,7 @@ class _FinancePageState extends State<FinancePage> {
 
                   const SizedBox(height: 14),
 
-                  // ── Calendar — doc 1: centered label ──
+                  // ── Calendar ──
                   Center(
                     child: Text(
                       _getMonthYearLabel(),
@@ -259,48 +264,67 @@ class _FinancePageState extends State<FinancePage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: weekDays.map((d) => _DayCell(day: d)).toList(),
+
+                  // ── Scrollable week row ──
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: weekDays
+                          .map((d) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: _DayCell(day: d),
+                              ))
+                          .toList(),
+                    ),
                   ),
                 ],
               ),
             ),
 
             // ── Category list ──
-            _isLoading
-              ? const Expanded(
-                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1D4ED8))),
-                )
-              : Expanded(
-                  child: _budgets.isEmpty
-                      ? _EmptyBudgetState(onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
-                          ).then((_) => _loadData());
-                        })
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          itemCount: _budgets.length,
-                          itemBuilder: (context, i) {
-                            final budget = _budgets[i];
-                            final categoryName = budget['category']['name'] as String;
-                            final remaining = (budget['remaining_amount'] as num).toDouble();
-
-                            return _CategoryTile(
-                              icon: _iconMap[categoryName] ?? Icons.category_outlined,
-                              iconColor: const Color.fromARGB(255, 70, 119, 255),
-                              label: categoryName,
-                              sisaBulanIni: remaining,
-                              formatRp: _formatRp,
-                            );
-                          },
-                        ),
-                ),
+            if (_isLoading)
+              const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator(color: Color(0xFF1D4ED8))),
+              )
+            else if (_budgets.isEmpty)
+              _EmptyBudgetState(onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatSiPintarPage()),
+                ).then((_) => _loadData());
+              })
+            else
+              ..._budgets.map((budget) {
+                final categoryName = budget['category']['name'] as String;
+                final remaining = (budget['remaining_amount'] as num).toDouble();
+                return _CategoryTile(
+                  icon: _iconMap[categoryName] ?? Icons.category_outlined,
+                  iconColor: const Color.fromARGB(255, 70, 119, 255),
+                  label: categoryName,
+                  sisaBulanIni: remaining,
+                  formatRp: _formatRp,
+                );
+              }).toList(),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pollData() async {
+    if (_isPolling) return;
+    _isPolling = true;
+    try {
+      await _loadData();
+    } finally {
+      _isPolling = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 }
 

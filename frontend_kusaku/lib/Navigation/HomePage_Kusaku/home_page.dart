@@ -19,7 +19,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // ── State variables (mutable, set via setState) ──
   List<String> _bannerImages = [];
   bool isLoadingAds = true;
 
@@ -33,6 +32,8 @@ class _HomePageState extends State<HomePage> {
   int? balance;
   bool isLoadingBalance = true;
 
+  bool _isPolling = false;
+
   final formatter = NumberFormat.currency(
     locale: 'id_ID',
     symbol: 'Rp ',
@@ -42,6 +43,17 @@ class _HomePageState extends State<HomePage> {
   final PageController _carouselController = PageController();
   int _currentCarouselIndex = 0;
   Timer? _carouselTimer;
+  Timer? _pollTimer;
+
+  Future<void> _pollData() async {
+    if (_isPolling) return;
+    _isPolling = true;
+    try {
+      await _initData();
+    } finally {
+      _isPolling = false;
+    }
+  }
 
   @override
   void initState() {
@@ -57,6 +69,7 @@ class _HomePageState extends State<HomePage> {
         curve: Curves.easeInOut,
       );
     });
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollData());
   }
 
   Future<void> _initData() async {
@@ -82,7 +95,6 @@ class _HomePageState extends State<HomePage> {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}balance/$userId/'),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -98,13 +110,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ================= ADS =================
   Future<void> fetchAds() async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}ads/'),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -127,7 +137,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ================= ACTIVITIES =================
   Future<void> fetchActivities(int userId) async {
     try {
       final expenseRes =
@@ -200,18 +209,14 @@ class _HomePageState extends State<HomePage> {
       final res = await http.get(
         Uri.parse('${ApiConfig.baseUrl}budget/$userId/'),
       );
-
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-
         double totalAllocated = 0;
         double totalUsed = 0;
-
         for (var b in data) {
           totalAllocated += (b['allocated_amount'] as num).toDouble();
           totalUsed += (b['used_amount'] as num).toDouble();
         }
-
         setState(() {
           budgetUsedPercent =
               totalAllocated == 0 ? 0 : (totalUsed / totalAllocated) * 100;
@@ -228,6 +233,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _carouselTimer?.cancel();
     _carouselController.dispose();
     super.dispose();
@@ -237,7 +243,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 21, 60, 167),
         elevation: 0,
@@ -251,31 +256,38 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      body: SafeArea(
+      body: RefreshIndicator(
+        onRefresh: _initData,
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Top blue section ──
               Container(
                 width: double.infinity,
                 color: const Color.fromARGB(255, 177, 198, 255),
                 child: Column(
                   children: [
-
-                    // ── Purple thingy ──
+                    // ── Balance card ──
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 32),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF7C3AED), Color.fromARGB(255, 186, 152, 241)],
+                            colors: [
+                              Color(0xFF7C3AED),
+                              Color.fromARGB(255, 186, 152, 241),
+                            ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: const Color.fromARGB(255, 10, 2, 31).withOpacity(0.3),
+                            color: const Color.fromARGB(255, 10, 2, 31)
+                                .withOpacity(0.3),
                             width: 4.5,
                           ),
                         ),
@@ -284,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Wallet icon + Total Saldo
+                              // Wallet icon + label
                               Row(
                                 children: [
                                   Container(
@@ -326,9 +338,9 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
 
-                              // Divider between balance and buttons
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 child: Divider(
                                   color: Colors.white.withOpacity(0.3),
                                   thickness: 1,
@@ -338,20 +350,24 @@ class _HomePageState extends State<HomePage> {
 
                               // Quick action buttons
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: [
                                   _QuickAction(
                                     icon: Icons.add,
                                     label: 'Top Up',
                                     onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (_) => const TopUpPage()),
+                                      MaterialPageRoute(
+                                          builder: (_) => const TopUpPage()),
                                     ),
                                   ),
                                   _QuickAction(
                                     icon: Icons.swap_horiz,
                                     label: 'Transfer',
                                     onTap: () => Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (_) => const TransferPage()),
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const TransferPage()),
                                     ),
                                   ),
                                   _QuickAction(
@@ -361,7 +377,8 @@ class _HomePageState extends State<HomePage> {
                                       if (_userId != null) {
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
-                                            builder: (_) => QrisKitaPage(userId: _userId!),
+                                            builder: (_) => QrisKitaPage(
+                                                userId: _userId!),
                                           ),
                                         );
                                       }
@@ -375,7 +392,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
 
-                    // ── Dark blue promo strip ──
+                    // ── Promo strip ──
                     Container(
                       width: double.infinity,
                       decoration: const BoxDecoration(
@@ -386,7 +403,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       margin: const EdgeInsets.only(top: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       child: const Text(
                         'Top Up Kusaku sesering mungkin, raih total 67\nperak Kusaku points!',
                         textAlign: TextAlign.center,
@@ -445,7 +463,6 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            // ── FIX: removed `const` so runtime state vars are accessible ──
                             Text(
                               isLoadingInsight
                                   ? 'Menghitung...'
@@ -495,12 +512,14 @@ class _HomePageState extends State<HomePage> {
                       if (isLoadingActivities)
                         const Padding(
                           padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
+                          child:
+                              Center(child: CircularProgressIndicator()),
                         )
                       else if (_activities.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(16),
-                          child: Center(child: Text("Belum ada aktivitas")),
+                          child: Center(
+                              child: Text("Belum ada aktivitas")),
                         )
                       else
                         ...List.generate(
@@ -517,7 +536,7 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 16),
 
-              // ── Auto-scrolling banner carousel ──
+              // ── Banner carousel ──
               if (_bannerImages.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -540,10 +559,12 @@ class _HomePageState extends State<HomePage> {
                                 Container(
                               color: const Color(0xFFE5E7EB),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.image_outlined,
-                                      size: 36, color: Colors.grey.shade400),
+                                      size: 36,
+                                      color: Colors.grey.shade400),
                                   const SizedBox(height: 6),
                                   Text(
                                     _bannerImages[index],
@@ -592,15 +613,20 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
+} // ← end of _HomePageState
+
 
 // ── Quick action button ──
 class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _QuickAction(
-      {required this.icon, required this.label, required this.onTap});
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -632,11 +658,16 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
+
 // ── Activity tile ──
 class _ActivityTile extends StatelessWidget {
   final _ActivityItem item;
   final bool isLast;
-  const _ActivityTile({required this.item, required this.isLast});
+
+  const _ActivityTile({
+    required this.item,
+    required this.isLast,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -646,7 +677,6 @@ class _ActivityTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              // Colored icon container
               Container(
                 width: 42,
                 height: 42,
@@ -661,22 +691,28 @@ class _ActivityTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.label,
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF111827))),
-                    Text(item.subtitle,
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF9CA3AF))),
+                    Text(
+                      item.label,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827)),
+                    ),
+                    Text(
+                      item.subtitle,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF9CA3AF)),
+                    ),
                   ],
                 ),
               ),
-              Text(item.amount,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFDC2626))),
+              Text(
+                item.amount,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFDC2626)),
+              ),
             ],
           ),
         ),
@@ -691,6 +727,8 @@ class _ActivityTile extends StatelessWidget {
   }
 }
 
+
+// ── Activity item data class ──
 class _ActivityItem {
   final String label;
   final String subtitle;
@@ -698,6 +736,7 @@ class _ActivityItem {
   final Color iconBgColor;
   final IconData iconData;
   final Color iconColor;
+
   const _ActivityItem({
     required this.label,
     required this.subtitle,

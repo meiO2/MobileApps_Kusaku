@@ -9,10 +9,9 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-// Gunakan TickerProviderStateMixin karena gw pakai lebih dari 1 AnimationController
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late AnimationController _sequenceController; // Mengatur urutan masuk & membesar
-  late AnimationController _rotationController; // Khusus mengatur putaran
+  late AnimationController _sequenceController; 
+  late AnimationController _rotationController; 
 
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
@@ -21,7 +20,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   void initState() {
     super.initState();
 
-    // Controller untuk Putaran Logo
     _rotationController = AnimationController(
       duration: const Duration(seconds: 4),
       vsync: this,
@@ -33,43 +31,31 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       vsync: this,
     );
 
-    // --- TIMELINE ANIMASI ---
-
-    // Animasi Ukuran (Scale) Logo & Kusaku
     _scaleAnimation = TweenSequence<double>([
-      // muncul Ukuran KECIL
       TweenSequenceItem(tween: ConstantTween(0.5), weight: 50),
-      // Membesar dari 0.5 ke 1.0
       TweenSequenceItem(
         tween: Tween(begin: 0.5, end: 1.0).chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 50,
       ),
     ]).animate(_sequenceController);
 
-    // Animasi Munculnya Tagline "Ayo..."
     _fadeAnimation = TweenSequence<double>([
-      // belum terlihat waktu awal
       TweenSequenceItem(tween: ConstantTween(0.0), weight: 15),
-      // mulai muncul
       TweenSequenceItem(
         tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeIn)),
         weight: 35,
       ),
-      // utuh
       TweenSequenceItem(tween: ConstantTween(1.0), weight: 50),
     ]).animate(_sequenceController);
 
-    // MULAI ANIMASI UTAMA
     _sequenceController.forward();
 
-    // berputar saat logo membesar
     Future.delayed(const Duration(milliseconds: 1250), () {
       if (mounted) {
-        _rotationController.repeat(); // Baru mulai berputar di sini
+        _rotationController.repeat();
       }
     });
 
-    // Pindah ke Login Screen setelah animasi selesai
     Timer(const Duration(seconds: 4), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
