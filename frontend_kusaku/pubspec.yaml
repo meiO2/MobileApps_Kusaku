@@ -81,6 +81,7 @@ flutter:
     - assets/images/Vector.png
     - assets/images/nota.png
     - assets/images/starbucek.png
+    - assets/images/sipintar/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

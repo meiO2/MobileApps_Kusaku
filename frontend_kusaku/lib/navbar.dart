@@ -107,7 +107,7 @@ class _KusakuNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         child: SizedBox(
-          height: 100,
+          height: 60,
           child: Row(
             children: [
               _NavItem(

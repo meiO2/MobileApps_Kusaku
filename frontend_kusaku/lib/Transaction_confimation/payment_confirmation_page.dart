@@ -5,6 +5,16 @@ import 'payment_confirmation_models.dart';
 import '../Widgets/kusaku_auth_widgets.dart';
 import '../Widgets/payment_confirmation_widgets.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend_kusaku/config/api_config.dart';
+
+// Removed _Session - integrated into BudgetService
+
+
+enum PaymentStatus { idle, submitting, success, failure }
+
 class PaymentConfirmationPage extends StatefulWidget {
   PaymentConfirmationPage({
     super.key,
@@ -25,20 +35,93 @@ class PaymentConfirmationPage extends StatefulWidget {
 class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   bool _isCategoryOpen = false;
   bool _showSavingConfirmation = false;
-  PaymentFlowStatus _paymentStatus = PaymentFlowStatus.idle;
+  String _userId = '';
+  String? _selectedCategoryId;
+PaymentStatus _paymentStatus = PaymentStatus.idle;
   int? _previousSelectedIndex;
   String? _errorMessage;
 
   int _selectedIndex = 0;
 
-  bool get _isPaymentSuccessful => _paymentStatus == PaymentFlowStatus.success;
-  bool get _isSubmitting => _paymentStatus == PaymentFlowStatus.submitting;
-  List<PaymentCategoryData> get _categories => widget.data.categories;
+  List<dynamic> _budgets = [];
+
+  bool get _isPaymentSuccessful => _paymentStatus == PaymentStatus.success;
+  bool get _isSubmitting => _paymentStatus == PaymentStatus.submitting;
+  List<PaymentCategoryData> get _categories {
+    if (_budgets.isEmpty) return widget.data.categories;
+
+    return _budgets.map((b) {
+      final category = b['category'];
+      final name = category['name'];
+      final id = category['id'].toString();
+      final remaining = (b['remaining_amount'] as num).toDouble();
+
+      return PaymentCategoryData(
+        id: id,
+        name: name,
+        icon: kCategoryIcons[name] ?? Icons.category,
+
+        remainingAmount: remaining.toInt(),
+        isSaving: name == 'Tabungan',
+      );
+    }).toList();
+  }
+
+  static const Map<String, IconData> kCategoryIcons = {
+    'Kebutuhan Rumah': Icons.home_outlined,
+    'Makan & Minum': Icons.restaurant_outlined,
+    'Transportasi': Icons.directions_car_outlined,
+    'Investasi': Icons.trending_up_outlined,
+    'Tabungan': Icons.savings_outlined,
+    'Belanja': Icons.shopping_bag_outlined,
+  };
+
+
   List<PaymentDetailLine> get _paymentDetails => buildPaymentDetailLines(
     amount: widget.data.amount,
     transactionFee: widget.data.transactionFee,
     remainingBalance: widget.data.remainingBalance,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+Future<void> _loadSession() async {
+    final userId = await SharedPreferences.getInstance().then((prefs) => prefs.getInt('user_id')?.toString() ?? '');
+    if (!mounted) return;
+
+    setState(() {
+      _userId = userId;
+    });
+
+    final budgets = await _loadBudgets();
+    if (mounted) {
+      setState(() {
+        _budgets = budgets;
+      });
+    }
+  }
+
+Future<List<dynamic>> _loadBudgets() async {
+    if (_userId.isEmpty) return [];
+
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}budgets/$_userId/'),
+      );
+
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      print('Failed load budgets: $e');
+    }
+    return [];
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +158,9 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                           merchantName: widget.data.merchant.name,
                           methodLabel:
                               widget.data.successMethodLabel ?? widget.data.methodLabel,
-                          onBack: () => Navigator.of(context).maybePop(),
+                          onBack: () {
+                            Navigator.of(context).popUntil((route) => route.isFirst);
+                          },
                         ),
                       ),
                     ] else ...[
@@ -154,14 +239,14 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
     final localPin = TransactionPinStore.pin;
     if (localPin != null && localPin.isNotEmpty && enteredPin != localPin) {
       setState(() {
-        _paymentStatus = PaymentFlowStatus.failure;
+        _paymentStatus = PaymentStatus.failure;
         _errorMessage = 'PIN yang dimasukkan tidak sesuai.';
       });
       return;
     }
 
     setState(() {
-      _paymentStatus = PaymentFlowStatus.submitting;
+      _paymentStatus = PaymentStatus.submitting;
       _errorMessage = null;
     });
 
@@ -176,7 +261,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
       _showSavingConfirmation = false;
       _previousSelectedIndex = null;
       _paymentStatus =
-          result.isSuccess ? PaymentFlowStatus.success : PaymentFlowStatus.failure;
+          result.isSuccess ? PaymentStatus.success : PaymentStatus.failure;
       _errorMessage = result.isSuccess ? null : result.errorMessage;
     });
   }
@@ -211,8 +296,31 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
       }
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    return const PaymentSubmissionResult(isSuccess: true);
+    try {
+
+      if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty) {
+        await http.post(
+          Uri.parse('${ApiConfig.baseUrl}expenses/$_userId/'),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'category': _selectedCategoryId,
+            'total_payment': widget.data.amount.toString(),
+            'receiver': widget.data.merchant.name,
+            'title': 'Pembayaran ke ${widget.data.merchant.name}',
+            'description': widget.data.methodLabel,
+          }),
+        );
+      }
+
+      return const PaymentSubmissionResult(isSuccess: true);
+    } catch (e) {
+      print('Payment error: $e');
+
+      return const PaymentSubmissionResult(
+        isSuccess: false,
+        errorMessage: 'Gagal menyimpan transaksi',
+      );
+    }
   }
 
   void _toggleCategory() {
@@ -227,14 +335,15 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   void _selectCategory(int index) {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     final nextCategory = _categories[index];
 
     setState(() {
+      _selectedCategoryId = nextCategory.id; // ✅ FIXED
+
       _errorMessage = null;
+
       if (nextCategory.isSaving) {
         _previousSelectedIndex = _selectedIndex;
         _selectedIndex = index;

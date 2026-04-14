@@ -340,7 +340,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
       ),
       child: ClipOval(
         child: Image.asset(
-          'images/sipintar/sipintar.png',
+          'assets/images/sipintar/sipintar.png',
           fit: BoxFit.contain,
         ),
       ),

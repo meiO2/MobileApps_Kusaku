@@ -117,14 +117,17 @@ class _TransferPageState extends State<TransferPage> {
   String _myName   = '';
 
   // Transfer data
-  String _selectedMethod  = '';
-  String _recipientCode   = '';
-  String _recipientName   = '';
-  String _amount          = '';
-  String _pesan           = '';
+  String _selectedMethod   = '';
+  String _recipientCode    = '';
+  String _recipientName    = '';
+  String _amount           = '';
+  String _pesan            = '';
+String _selectedCategory = '';
+  List<Map<String, dynamic>> _categories = [];
+  String? _selectedCategoryId;
 
   // Lookup
-  bool        _isLooking        = false;
+  bool        _isLooking         = false;
   String?     _lookupError;
   _Recipient? _lookedUpRecipient;
 
@@ -135,8 +138,17 @@ class _TransferPageState extends State<TransferPage> {
   // Submission
   bool _isSubmitting = false;
 
-  final TextEditingController _pesanController   = TextEditingController();
-  final TextEditingController _searchController  = TextEditingController();
+  final TextEditingController _pesanController  = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+
+  // Categories list
+  List<String> _hardcodedCategories = const [
+    'Kebutuhan Rumah',
+    'Makan & Minum',
+    'Transportasi',
+    'Investasi',
+    'Tabungan',
+  ];
 
   static const int _maxTransfer = 30000000;
 
@@ -144,6 +156,28 @@ class _TransferPageState extends State<TransferPage> {
   void initState() {
     super.initState();
     _loadSession();
+  }
+
+  Future<void> _loadCategories() async {
+    if (_myUserId.isEmpty) return;
+    try {
+      final res = await http.get(Uri.parse('${ApiConfig.baseUrl}categories/$_myUserId/'));
+      if (res.statusCode == 200) {
+final dynamic jsonResponse = jsonDecode(res.body);
+  final List data = jsonResponse is List ? jsonResponse : [];
+        if (mounted) {
+          setState(() {
+            _categories = data.map((c) => {
+'id': (c['id'] ?? '').toString(),
+'name': c['name']?.toString() ?? 'Unknown',
+            }).toList();
+          });
+        }
+      }
+    } catch (e) {
+      print('Categories load failed: $e');
+      // fallback hardcoded later
+    }
   }
 
   Future<void> _loadSession() async {
@@ -171,7 +205,7 @@ class _TransferPageState extends State<TransferPage> {
           if (mounted) {
             setState(() {
               _myPhone = data['phone_number'] ?? '';
-              _myName = data['username'] ?? '';
+              _myName  = data['username'] ?? '';
             });
           }
         }
@@ -179,9 +213,10 @@ class _TransferPageState extends State<TransferPage> {
         print('Fallback profile fetch failed: $e');
       }
     }
-    _loadRecentRecipients();
+_loadRecentRecipients();
+    await _loadCategories();
 
-    // ✅ NEW: If opened from QR scan, skip straight to enterDetails
+    // If opened from QR scan, skip straight to enterDetails
     final prefPhone = widget.prefilledRecipientPhone;
     final prefName  = widget.prefilledRecipientName;
     if (prefPhone != null && prefPhone.isNotEmpty) {
@@ -236,6 +271,25 @@ class _TransferPageState extends State<TransferPage> {
         amount:         _amountInt,
         notes:          _pesan,
       );
+
+      if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty) {
+        try {
+          await http.post(
+            Uri.parse('${ApiConfig.baseUrl}expenses/$_myUserId/'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'category': _selectedCategoryId,
+              'total_payment': _amountInt.toString(),
+              'receiver': _recipientName,
+              'title': 'Transfer ke $_recipientName',
+              'description': _pesan,
+            }),
+          );
+        } catch (e) {
+          print('Failed to create Expense after transfer: $e');
+        }
+      }
+
       if (mounted) setState(() => _step = _TransferStep.success);
     } on _ApiException catch (e) {
       if (!mounted) return;
@@ -258,10 +312,10 @@ class _TransferPageState extends State<TransferPage> {
 
   void _selectRecipient(_Recipient r) {
     setState(() {
-      _recipientCode       = r.code;
-      _recipientName       = r.name;
-      _lookedUpRecipient   = null;
-      _lookupError         = null;
+      _recipientCode     = r.code;
+      _recipientName     = r.name;
+      _lookedUpRecipient = null;
+      _lookupError       = null;
       _searchController.clear();
       _step = _TransferStep.enterDetails;
     });
@@ -300,7 +354,7 @@ class _TransferPageState extends State<TransferPage> {
           _step = _TransferStep.selectMethod;
           break;
         case _TransferStep.enterDetails:
-          // ✅ NEW: If came from QR scan, pressing back exits the page entirely
+          // If came from QR scan, pressing back exits the page entirely
           if (widget.prefilledRecipientPhone != null) {
             Navigator.of(context).pop();
           } else {
@@ -321,11 +375,17 @@ class _TransferPageState extends State<TransferPage> {
 
   void _reset() {
     setState(() {
-      _step = _TransferStep.selectMethod;
-      _selectedMethod = ''; _recipientCode = ''; _recipientName = '';
-      _amount = ''; _pesan = '';
-      _lookedUpRecipient = null; _lookupError = null;
-      _pesanController.clear(); _searchController.clear();
+      _step            = _TransferStep.selectMethod;
+      _selectedMethod  = '';
+      _recipientCode   = '';
+      _recipientName   = '';
+      _amount          = '';
+      _pesan           = '';
+      _selectedCategory = '';
+      _lookedUpRecipient = null;
+      _lookupError       = null;
+      _pesanController.clear();
+      _searchController.clear();
     });
   }
 
@@ -347,9 +407,12 @@ class _TransferPageState extends State<TransferPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 28, height: 28,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
               child: const Icon(Icons.account_balance_wallet,
                   color: Colors.white, size: 16),
             ),
@@ -385,6 +448,7 @@ class _TransferPageState extends State<TransferPage> {
     }
   }
 
+  // ── Step 1: Choose method ──
   Widget _buildSelectMethod() {
     return Container(
       key: const ValueKey('method'),
@@ -395,8 +459,10 @@ class _TransferPageState extends State<TransferPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            Text('Kode Kusaku: $_myPhone',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(
+              'Kode Kusaku: $_myPhone',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -408,22 +474,45 @@ class _TransferPageState extends State<TransferPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _MethodButton(icon: Icons.account_circle_outlined, label: 'Kusaku',
-                      onTap: () => setState(() { _selectedMethod = 'Kusaku'; _step = _TransferStep.selectRecipient; })),
-                  _MethodButton(icon: Icons.account_balance_outlined, label: 'Bank Lain',
-                      onTap: () => setState(() { _selectedMethod = 'Bank Lain'; _step = _TransferStep.selectRecipient; })),
-                  _MethodButton(icon: Icons.credit_card_outlined, label: 'Virtual\nAccount',
-                      onTap: () => setState(() { _selectedMethod = 'Virtual Account'; _step = _TransferStep.selectRecipient; })),
+                  _MethodButton(
+                    icon: Icons.account_circle_outlined,
+                    label: 'Kusaku',
+                    onTap: () => setState(() {
+                      _selectedMethod = 'Kusaku';
+                      _step = _TransferStep.selectRecipient;
+                    }),
+                  ),
+                  _MethodButton(
+                    icon: Icons.account_balance_outlined,
+                    label: 'Bank Lain',
+                    onTap: () => setState(() {
+                      _selectedMethod = 'Bank Lain';
+                      _step = _TransferStep.selectRecipient;
+                    }),
+                  ),
+                  _MethodButton(
+                    icon: Icons.credit_card_outlined,
+                    label: 'Virtual\nAccount',
+                    onTap: () => setState(() {
+                      _selectedMethod = 'Virtual Account';
+                      _step = _TransferStep.selectRecipient;
+                    }),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            const Row(children: [
-              Icon(Icons.history, size: 18, color: Color(0xFF6B7280)),
-              SizedBox(width: 6),
-              Text('Terakhir',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
+            const Row(
+              children: [
+                Icon(Icons.history, size: 18, color: Color(0xFF6B7280)),
+                SizedBox(width: 6),
+                Text('Terakhir',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                SizedBox(width: 24),
+                Text('Favorit',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+              ],
+            ),
             const SizedBox(height: 10),
             if (_loadingHistory)
               const Center(child: CircularProgressIndicator())
@@ -431,8 +520,9 @@ class _TransferPageState extends State<TransferPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(10)),
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: const Text('Belum ada riwayat transfer',
                     style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF))),
               )
@@ -464,6 +554,7 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
+  // ── Step 2: Pick recipient ──
   Widget _buildSelectRecipient() {
     return Container(
       key: const ValueKey('recipient'),
@@ -473,8 +564,10 @@ class _TransferPageState extends State<TransferPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Kode Kusaku: $_myPhone',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(
+              'Kode Kusaku: $_myPhone',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _searchController,
@@ -491,6 +584,7 @@ class _TransferPageState extends State<TransferPage> {
                 hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
                 filled: true,
                 fillColor: const Color(0xFF1D4ED8),
+                hintMaxLines: 1,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -501,7 +595,8 @@ class _TransferPageState extends State<TransferPage> {
                     ? const Padding(
                         padding: EdgeInsets.all(12),
                         child: SizedBox(
-                          width: 20, height: 20,
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         ))
@@ -537,12 +632,17 @@ class _TransferPageState extends State<TransferPage> {
               ),
 
             const SizedBox(height: 16),
-            const Row(children: [
-              Icon(Icons.history, size: 18, color: Color(0xFF6B7280)),
-              SizedBox(width: 6),
-              Text('Terakhir',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
+            const Row(
+              children: [
+                Icon(Icons.history, size: 18, color: Color(0xFF6B7280)),
+                SizedBox(width: 6),
+                Text('Terakhir',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                SizedBox(width: 24),
+                Text('Favorit',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+              ],
+            ),
             const SizedBox(height: 10),
 
             Expanded(
@@ -551,8 +651,9 @@ class _TransferPageState extends State<TransferPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(10)),
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: const Text('Belum ada riwayat transfer',
                           style: TextStyle(
                               fontSize: 13, color: Color(0xFF9CA3AF))),
@@ -564,12 +665,10 @@ class _TransferPageState extends State<TransferPage> {
                         return ListTile(
                           leading: const CircleAvatar(
                             backgroundColor: Color(0xFFBFDBFE),
-                            child:
-                                Icon(Icons.person, color: Color(0xFF1D4ED8)),
+                            child: Icon(Icons.person, color: Color(0xFF1D4ED8)),
                           ),
                           title: Text(r.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text(r.code),
                           onTap: () => _selectRecipient(r),
                         );
@@ -582,6 +681,7 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
+  // ── Step 3: Amount + category + pesan ──
   Widget _buildEnterDetails() {
     return Container(
       key: const ValueKey('details'),
@@ -599,18 +699,23 @@ class _TransferPageState extends State<TransferPage> {
                   const SizedBox(height: 6),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                        color: const Color(0xFF1D4ED8),
-                        borderRadius: BorderRadius.circular(10)),
+                      color: const Color(0xFF1D4ED8),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_recipientCode,
                             style: const TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15)),
                         Text(_recipientName,
-                            style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -618,25 +723,122 @@ class _TransferPageState extends State<TransferPage> {
                   const Text('Dari Akun:',
                       style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
                   Text('Kode Kusaku: $_myPhone',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 14),
                   const Text('Jumlah',
                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  Row(children: [
-                    const Text('IDR  ',
-                        style: TextStyle(fontSize: 18, color: Color(0xFF6B7280))),
-                    Text(
-                      _amount.isEmpty ? '0' : _formatRp(_amountInt),
-                      style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700,
-                        color: _amount.isEmpty
-                            ? const Color(0xFFD1D5DB)
-                            : const Color(0xFF111827),
+                  Row(
+                    children: [
+                      const Text('IDR  ',
+                          style: TextStyle(
+                              fontSize: 18, color: Color(0xFF6B7280))),
+                      Text(
+                        _amount.isEmpty ? '0' : _formatRp(_amountInt),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: _amount.isEmpty
+                              ? const Color(0xFFD1D5DB)
+                              : const Color(0xFF111827),
+                        ),
                       ),
-                    ),
-                  ]),
+                    ],
+                  ),
                   const Divider(color: Color(0xFFE5E7EB)),
                   const SizedBox(height: 8),
+
+                  // ── Category picker (from File 3 UI) ──
+                  const Text('Kategori',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showModalBottomSheet<String>(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(16)),
+                        ),
+                        builder: (ctx) => SafeArea(
+                          child: SizedBox(
+                            height: MediaQuery.of(ctx).size.height * 0.5, // limit height
+                            child: Column(
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                  child: Text(
+                                    'Pilih Kategori',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+
+                                Expanded(
+                                  child: ListView(
+                                    children: (_categories.isNotEmpty
+                                        ? _categories.map((cat) => ListTile(
+                                              title: Text(cat['name']),
+                                              trailing: _selectedCategoryId == cat['id']
+                                                  ? const Icon(Icons.check, color: Color(0xFF1D4ED8))
+                                                  : null,
+                                              onTap: () => Navigator.of(ctx)
+                                                  .pop('${cat['id']}|${cat['name']}'),
+                                            ))
+                                        : _hardcodedCategories.map((cat) => ListTile(
+                                              title: Text(cat),
+                                              trailing: _selectedCategory == cat
+                                                  ? const Icon(Icons.check, color: Color(0xFF1D4ED8))
+                                                  : null,
+                                              onTap: () => Navigator.of(ctx).pop(cat),
+                                            )))
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                      if (picked != null) {
+                        final parts = picked.split('|');
+                        if (parts.length == 2) {
+                          setState(() {
+                            _selectedCategoryId = parts[0];
+                            _selectedCategory = parts[1];
+                          });
+                        } else {
+                          setState(() => _selectedCategory = picked);
+                        }
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _selectedCategory.isEmpty
+                            ? 'Pilih satu kategori'
+                            : _selectedCategory,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _selectedCategory.isEmpty
+                              ? const Color(0xFF9CA3AF)
+                              : const Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(color: Color(0xFFE5E7EB)),
+                  const SizedBox(height: 8),
+
                   const Text('Pesan',
                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   TextField(
@@ -645,7 +847,8 @@ class _TransferPageState extends State<TransferPage> {
                     decoration: const InputDecoration(
                       hintText: 'Tulis pesan (opsional)',
                       border: InputBorder.none,
-                      hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                      hintStyle:
+                          TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
                     ),
                   ),
                   const Divider(color: Color(0xFFE5E7EB)),
@@ -653,6 +856,8 @@ class _TransferPageState extends State<TransferPage> {
               ),
             ),
           ),
+
+          // ── Numpad ──
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             child: GridView.count(
@@ -660,7 +865,12 @@ class _TransferPageState extends State<TransferPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 2.2,
-              children: ['1','2','3','4','5','6','7','8','9','','0','⌫'].map((key) {
+              children: [
+                '1', '2', '3',
+                '4', '5', '6',
+                '7', '8', '9',
+                '',  '0', '⌫',
+              ].map((key) {
                 if (key.isEmpty) return const SizedBox();
                 return TextButton(
                   onPressed: () => _onAmountKey(key),
@@ -677,7 +887,8 @@ class _TransferPageState extends State<TransferPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: SizedBox(
-              width: double.infinity, height: 48,
+              width: double.infinity,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _amountInt > 0
                     ? () => setState(() => _step = _TransferStep.confirm)
@@ -700,6 +911,7 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
+  // ── Step 4: Confirm ──
   Widget _buildConfirm() {
     return Container(
       key: const ValueKey('confirm'),
@@ -716,27 +928,43 @@ class _TransferPageState extends State<TransferPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                  color: const Color(0xFF1D4ED8),
-                  borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                _ConfirmBlock(title: 'Dari Akun:', lines: [_myPhone, _myName]),
-                const Divider(color: Colors.white24, height: 24),
-                _ConfirmBlock(title: 'Tujuan', lines: [_recipientCode, _recipientName]),
-                const Divider(color: Colors.white24, height: 24),
-                _ConfirmBlock(title: 'Jumlah', lines: ['IDR', _formatRp(_amountInt)]),
-                if (_pesan.isNotEmpty) ...[
+                color: const Color(0xFF1D4ED8),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _ConfirmBlock(title: 'Dari Akun:', lines: [_myPhone, _myName]),
                   const Divider(color: Colors.white24, height: 24),
-                  _ConfirmBlock(title: 'Pesan', lines: [_pesan]),
+                  _ConfirmBlock(title: 'Tujuan', lines: [
+                    _recipientCode,
+                    _recipientName,
+                  ]),
+                  const Divider(color: Colors.white24, height: 24),
+                  _ConfirmBlock(title: 'Jumlah', lines: [
+                    'IDR',
+                    _formatRp(_amountInt),
+                  ]),
+                  const Divider(color: Colors.white24, height: 24),
+                  // ── Kategori row (from File 3 UI) ──
+                  _ConfirmBlock(title: 'Kategori', lines: [
+                    _selectedCategory.isEmpty ? '-' : _selectedCategory,
+                  ]),
+                  if (_pesan.isNotEmpty) ...[
+                    const Divider(color: Colors.white24, height: 24),
+                    _ConfirmBlock(title: 'Pesan', lines: [_pesan]),
+                  ],
                 ],
-              ]),
+              ),
             ),
             const Spacer(),
             SizedBox(
-              width: double.infinity, height: 48,
+              width: double.infinity,
+              height: 48,
               child: ElevatedButton(
-                onPressed: () => setState(() => _step = _TransferStep.pinVerify),
+                onPressed: () =>
+                    setState(() => _step = _TransferStep.pinVerify),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(255, 12, 38, 109),
+                  backgroundColor: const Color(0xFF1D4ED8),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -752,6 +980,7 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
+  // ── Step 5: PIN ──
   Widget _buildPinStep() {
     if (!_isSubmitting) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -795,6 +1024,7 @@ class _TransferPageState extends State<TransferPage> {
     );
   }
 
+  // ── Step 6: Success ──
   Widget _buildSuccess() {
     final now = DateTime.now();
     final dateStr = '${now.day}/${now.month}/${now.year}';
@@ -808,42 +1038,69 @@ class _TransferPageState extends State<TransferPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Center(
-              child: Text('Transfer',
-                  style: TextStyle(color: Colors.white,
-                      fontWeight: FontWeight.w700, fontSize: 16)),
+              child: Text(
+                'Transfer',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
             ),
             const SizedBox(height: 4),
             const Divider(color: Colors.white24),
             const SizedBox(height: 12),
+
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 28),
               decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                const Icon(Icons.insert_drive_file_outlined,
-                    color: Color(0xFF16A34A), size: 85),
-                const SizedBox(height: 10),
-                const Text('Transfer Successful!',
-                    style: TextStyle(color: Color(0xFF16A34A),
-                        fontWeight: FontWeight.w700, fontSize: 18)),
-                const SizedBox(height: 4),
-                Text('Rp ${_formatRp(_amountInt)}',
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  const Icon(Icons.insert_drive_file_outlined,
+                      color: Color(0xFF16A34A), size: 52),
+                  const Icon(Icons.check,
+                      color: Color(0xFF16A34A), size: 20),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Transfer Successful!',
+                    style: TextStyle(
+                      color: Color(0xFF16A34A),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Rp ${_formatRp(_amountInt)}',
                     style: const TextStyle(
-                        color: Color(0xFF16A34A), fontWeight: FontWeight.bold,
-                        height: 2.5, fontSize: 28)),
-              ]),
+                      color: Color(0xFF111827),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 26,
+                    ),
+                  ),
+                ],
+              ),
             ),
+
             const SizedBox(height: 20),
+
             _SuccessRow(label: 'Dari Akun:', value: _myPhone),
             _SuccessRow(label: 'Tanggal  :', value: dateStr),
             _SuccessRow(label: 'Tujuan   :', value: _recipientCode),
+
             const Spacer(),
+
             SizedBox(
-              width: double.infinity, height: 48,
+              width: double.infinity,
+              height: 48,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFF1D4ED8),
@@ -851,7 +1108,7 @@ class _TransferPageState extends State<TransferPage> {
                       borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
                 ),
-                child: const Text('Selesai',
+                child: const Text('Konfirmasi',
                     style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
@@ -863,26 +1120,34 @@ class _TransferPageState extends State<TransferPage> {
 }
 
 
+// ── Helper widgets ──
+
 class _MethodButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _MethodButton({required this.icon, required this.label, required this.onTap});
+  const _MethodButton(
+      {required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(children: [
-        Container(
-          width: 52, height: 52,
-          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-          child: Icon(icon, color: const Color(0xFF1D4ED8), size: 26),
-        ),
-        const SizedBox(height: 6),
-        Text(label, textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 12)),
-      ]),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+                color: Colors.white, shape: BoxShape.circle),
+            child: Icon(icon, color: const Color(0xFF1D4ED8), size: 26),
+          ),
+          const SizedBox(height: 6),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
@@ -897,11 +1162,14 @@ class _ConfirmBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(title,
+            style: const TextStyle(color: Colors.white70, fontSize: 13)),
         const SizedBox(height: 4),
         ...lines.map((l) => Text(l,
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14))),
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14))),
       ],
     );
   }
@@ -919,10 +1187,13 @@ class _SuccessRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
         ],
       ),
     );

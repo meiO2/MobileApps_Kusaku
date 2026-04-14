@@ -63,7 +63,6 @@ class _ScanPageState extends State<ScanPage> {
       backgroundColor: ScanColors.pageBackground,
       body: Stack(
         children: [
-          // 🔥 CAMERA BACKGROUND
           if (_contentType == ScanContentType.qris)
             ms.MobileScanner(
               controller: _scannerController,
@@ -85,7 +84,6 @@ class _ScanPageState extends State<ScanPage> {
               },
             ),
 
-          // 🔥 UI OVERLAY
           Column(
             children: [
               ScanTopBar(
@@ -152,7 +150,6 @@ class _ScanPageState extends State<ScanPage> {
     try {
       final qrisNumber = code.trim();
 
-      // ✅ NEW: Check if it's a Kusaku user QR (plain integer = user ID)
       final scannedUserId = int.tryParse(qrisNumber);
       if (scannedUserId != null) {
         setState(() {
@@ -262,7 +259,6 @@ class _ScanPageState extends State<ScanPage> {
     setState(() => _statusMessage = message);
   }
 
-  // 🔦 FLASH
   Future<void> _toggleFlash() async {
     setState(() {
       _isFlashOn = !_isFlashOn;
@@ -272,7 +268,6 @@ class _ScanPageState extends State<ScanPage> {
     await widget.onFlashChanged?.call(_isFlashOn);
   }
 
-  // 🔄 MODE SWITCH
   Future<void> _openReceiptMode() async {
     setState(() {
       _contentType = ScanContentType.receipt;
@@ -289,7 +284,6 @@ class _ScanPageState extends State<ScanPage> {
     await widget.onContentTypeChanged?.call(_contentType);
   }
 
-  // 🖼️ GALLERY
   Future<void> _openGallery() async {
     if (_isBusy) return;
 

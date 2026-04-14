@@ -73,41 +73,47 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _initData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('user_id');
-
-    if (userId == null) {
-      print("User ID not found");
-      return;
-    }
-
-    _userId = userId;
-    await Future.wait([
-      fetchBalance(userId),
-      fetchAds(),
-      fetchActivities(userId),
-      fetchInsight(userId),
-    ]);
-  }
-
-  Future<void> fetchBalance(int userId) async {
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}balance/$userId/'),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? int.tryParse(prefs.getString('user_id') ?? '0');
+
+      if (userId == null) {
+        print("User ID not found");
+        if (mounted) setState(() => isLoadingBalance = false);
+        return;
+      }
+
+      print('✅ userId: $userId');
+
+      _userId = userId;
+      final balanceData = await fetchBalance(userId);
+      await Future.wait([
+        fetchAds(),
+        fetchActivities(userId),
+        fetchInsight(userId),
+      ]);
+      
+      if (mounted) {
         setState(() {
-          balance = data['balance'];
+          balance = (balanceData['balance'] as num?)?.toInt();
           isLoadingBalance = false;
         });
-      } else {
-        setState(() => isLoadingBalance = false);
       }
-    } catch (e) {
-      print("Error: $e");
-      setState(() => isLoadingBalance = false);
+    } catch (e, stack) {
+      print('❌ _initData ERROR: $e');
+      print(stack);
+      if (mounted) setState(() => isLoadingBalance = false);
     }
+  }
+
+Future<Map<String, dynamic>> fetchBalance(int userId) async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}balance/$userId/'),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    throw Exception('Failed to load balance: ${response.body}');
   }
 
   Future<void> fetchAds() async {

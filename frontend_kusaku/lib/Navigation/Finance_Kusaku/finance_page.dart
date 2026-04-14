@@ -46,7 +46,7 @@ class _FinancePageState extends State<FinancePage> {
   Future<void> _loadData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id');
+      final userId = prefs.getInt('user_id') ?? int.tryParse(prefs.getString('user_id') ?? '0');
       if (userId == null) {
         print('❌ NO USER ID');
         return;
@@ -239,7 +239,7 @@ class _FinancePageState extends State<FinancePage> {
                               ),
                               child: ClipOval(
                                 child: Image.asset(
-                                  'images/sipintar/sipintar.png',
+                                  'assets/images/sipintar/sipintar.png',
                                   fit: BoxFit.contain,
                                 ),
                               ),
