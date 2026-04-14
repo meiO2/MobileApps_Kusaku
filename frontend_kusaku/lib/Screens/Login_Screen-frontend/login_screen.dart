@@ -154,27 +154,31 @@ class _LoginScreenState extends State<LoginScreen> {
         onPressed: () async {
           final prefs = await SharedPreferences.getInstance();
           final savedUsername = prefs.getString('last_username');
+          final userId = prefs.getInt('user_id');
 
-          if (savedUsername == null) {
+          if (savedUsername == null || userId == null) {
             _showSnackBar('Please login with your password first.');
             return;
           }
 
-          if (!TransactionPinStore.hasPin) {
-            _showSnackBar('PIN belum dibuat. Selesaikan Sign Up dulu.');
-            return;
-          }
-
+          if (!mounted) return;
           final String? pin = await showDialog<String>(
             context: context,
             builder: (context) => const KusakuPinInputDialog(),
           );
 
-          if (!mounted || pin == null) return;
+          if (!mounted || pin == null || pin.isEmpty) return;
 
-          if (pin == TransactionPinStore.pin) {
+          // Show loading while we verify remotely
+          setState(() => _isLoading = true);
+
+          final isCorrect = await TransactionPinStore.verifyPinRemote(userId, pin);
+
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+
+          if (isCorrect) {
             await prefs.setBool('is_authenticated', true);
-            if (!mounted) return;
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const MainShell()),
             );

@@ -1,4 +1,8 @@
+// In transaction_pin_store.dart
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config/api_config.dart';
 
 class TransactionPinStore {
   static const _key = 'transaction_pin';
@@ -22,5 +26,18 @@ class TransactionPinStore {
     _pin = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+  }
+
+  static Future<bool> verifyPinRemote(int userId, String pin) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}users/verify-pin/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, 'pin': pin}),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 }
