@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../Services/chat_service.dart';
+import '../../Services/ocr_service.dart';
 
 
 class ChatSiPintarPage extends StatefulWidget {
@@ -306,12 +307,31 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     final image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null && mounted) {
       setState(() {
-        _messages
-            .add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
+        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
       });
       _scrollToBottom();
-      // ✅ FIX: now calls the real AI response method, not the broken simulate
-      _getAIResponse('[User mengirim gambar untuk dianalisis]');
+
+      setState(() => _isTyping = true);
+
+      try {
+        final extractedText = await OCRService.extractText(image.path);
+
+        final prompt = '''
+Teks OCR dari struk/nota/bukti belanja:
+
+$extractedText
+
+Analisis keuangan:
+1. Total pengeluaran?
+2. Kategori (makanan, belanja, transportasi, dll)?
+3. Item utama dan harga?
+4. Saran hemat?''';
+
+        await _getAIResponse(prompt);
+      } catch (e) {
+        setState(() => _isTyping = false);
+        _addSiPintarMessage(text: 'Gagal membaca gambar: $e');
+      }
     }
   }
 
@@ -320,12 +340,31 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     final image = await picker.pickImage(source: ImageSource.camera);
     if (image != null && mounted) {
       setState(() {
-        _messages
-            .add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
+        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
       });
       _scrollToBottom();
-      // ✅ FIX: same here
-      _getAIResponse('[User mengirim foto untuk dianalisis]');
+
+      setState(() => _isTyping = true);
+
+      try {
+        final extractedText = await OCRService.extractText(image.path);
+
+        final prompt = '''
+Teks OCR dari struk/nota/bukti belanja:
+
+$extractedText
+
+Analisis keuangan:
+1. Total pengeluaran?
+2. Kategori (makanan, belanja, transportasi, dll)?
+3. Item utama dan harga?
+4. Saran hemat?''';
+
+        await _getAIResponse(prompt);
+      } catch (e) {
+        setState(() => _isTyping = false);
+        _addSiPintarMessage(text: 'Gagal membaca gambar: $e');
+      }
     }
   }
 
@@ -376,7 +415,7 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
               decoration: const BoxDecoration(shape: BoxShape.circle),
               child: ClipOval(
                 child: Image.asset(
-                  'images/sipintar/sipintar.png',
+                  'assets/images/sipintar/sipintar.png',
                   fit: BoxFit.contain,
                 ),
               ),
