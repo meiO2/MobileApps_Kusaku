@@ -70,7 +70,8 @@ class _KeuntunganCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        children: [
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // Title
           Text(
             item.title,
@@ -85,8 +86,7 @@ class _KeuntunganCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Image
-          SizedBox(
-            height: 235,
+          Flexible(
             child: Image.asset(
               item.imagePath,
               fit: BoxFit.contain,
