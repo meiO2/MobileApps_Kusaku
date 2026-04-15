@@ -86,6 +86,7 @@ class BudgetView(APIView):
 
             result.append({
                 "category": {
+                    "id": budget.category.id,
                     "name": budget.category.name,
                 },
                 "percentage": budget.percentage,

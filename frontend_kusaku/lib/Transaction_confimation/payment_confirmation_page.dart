@@ -261,8 +261,30 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   }
 
   Future<PaymentSubmissionResult> _submitPayment(String enteredPin) async {
-    // ✅ Always derive category from _selectedIndex — never rely on a separate field
     final selectedCategory = _categories[_selectedIndex];
+
+    if (_userId.isEmpty) {
+      return const PaymentSubmissionResult(
+        isSuccess: false,
+        errorMessage: 'User ID tidak ditemukan. Silakan login ulang.',
+      );
+    }
+
+    if (_budgets.isEmpty) {
+      return PaymentSubmissionResult(
+        isSuccess: false,
+        errorMessage: 'Setup kategori budget dulu di Chat Si Pintar, atau coba lagi.',
+      );
+    }
+
+    final categoryId = int.tryParse(selectedCategory.id);
+    if (categoryId == null) {
+      print('Available categories: ${_categories.map((c) => "${c.name}(${c.id})").join(", ")}');
+      return PaymentSubmissionResult(
+        isSuccess: false,
+        errorMessage: 'Kategori ID tidak valid: ${selectedCategory.id}. Budget error.',
+      );
+    }
 
     final payload = PaymentSubmissionPayload(
       transactionId: widget.data.transactionId,
@@ -279,7 +301,6 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
         if (result.isSuccess || (result.errorMessage?.isNotEmpty ?? false)) {
           return result;
         }
-
         return const PaymentSubmissionResult(
           isSuccess: false,
           errorMessage: 'Transaksi gagal diproses.',
@@ -293,26 +314,48 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
     }
 
     try {
-      // ✅ Use selectedCategory.id directly — always valid even if user
-      //    never manually changed the category selector
-      await http.post(
+      print('Submitting expense for user $_userId, category $categoryId (${selectedCategory.name})');
+      final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}expenses/$_userId/'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'category': selectedCategory.id,
-          'total_payment': widget.data.amount.toString(),
+          'category': categoryId,
           'receiver': widget.data.merchant.name,
-          'title': 'Pembayaran ke ${widget.data.merchant.name}',
-          'description': widget.data.methodLabel,
+          'total_payment': widget.data.amount.toString(),
+          'transaction_fee': widget.data.transactionFee.toString(),
+          'notes': 'Pembayaran ${widget.data.methodLabel} ke ${widget.data.merchant.name}',
         }),
       );
 
-      return const PaymentSubmissionResult(isSuccess: true);
+      print('Expense API Status: ${response.statusCode}');
+      print('Response: ${response.body}');
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return const PaymentSubmissionResult(isSuccess: true);
+      } else {
+        String errorMsg = 'Server error ${response.statusCode}';
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            final errs = <String>[];
+            decoded.forEach((k, v) {
+              if (v is List) errs.add('$k: ${v.join(", ")}');
+              else errs.add('$k: $v');
+            });
+            errorMsg = errs.join('; ');
+          } else {
+            errorMsg += ': ${response.body}';
+          }
+        } catch (e) {
+          errorMsg += ': ${response.body}';
+        }
+        return PaymentSubmissionResult(isSuccess: false, errorMessage: errorMsg);
+      }
     } catch (e) {
-      print('Payment error: $e');
-      return const PaymentSubmissionResult(
+      print('API connection error: $e');
+      return PaymentSubmissionResult(
         isSuccess: false,
-        errorMessage: 'Gagal menyimpan transaksi',
+        errorMessage: 'Tidak bisa konek ke server: $e. Pastikan backend jalan.',
       );
     }
   }

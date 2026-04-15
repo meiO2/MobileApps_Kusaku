@@ -10,6 +10,7 @@ import 'package:frontend_kusaku/config/api_config.dart';
 import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_models.dart';
 import 'package:frontend_kusaku/Transaction_confimation/payment_confirmation_page.dart';
 import 'package:frontend_kusaku/Navigation/HomePage_Kusaku/transfer_page.dart';
+import '../Finance_Kusaku/chat_si_pintar_page.dart';
 
 class ScanPage extends StatefulWidget {
   const ScanPage({
@@ -126,7 +127,7 @@ class _ScanPageState extends State<ScanPage> {
                               ? () {}
                               : _contentType == ScanContentType.receipt
                                   ? _openQrisMode
-                                  : _openReceiptMode,
+                                  : _onUnggahNota,
                         ),
                         ScanActionItem(
                           label: 'Upload Dari\nGaleri',
@@ -266,6 +267,35 @@ class _ScanPageState extends State<ScanPage> {
     });
     _scannerController.toggleTorch();
     await widget.onFlashChanged?.call(_isFlashOn);
+  }
+
+  Future<void> _onUnggahNota() async {
+    if (_isBusy) return;
+
+    setState(() {
+      _isBusy = true;
+      _statusMessage = 'Mengambil foto nota...';
+    });
+
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      if (image == null) {
+        setState(() => _statusMessage = 'Pengambilan foto dibatalkan');
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatSiPintarPage(initialImagePath: image.path),
+        ),
+      );
+    } catch (e) {
+      setState(() => _statusMessage = 'Gagal mengambil foto: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isBusy = false);
+      }
+    }
   }
 
   Future<void> _openReceiptMode() async {

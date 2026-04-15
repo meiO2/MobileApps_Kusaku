@@ -8,7 +8,8 @@ import '../../Services/ocr_service.dart';
 
 
 class ChatSiPintarPage extends StatefulWidget {
-  const ChatSiPintarPage({super.key});
+  final String? initialImagePath;
+  const ChatSiPintarPage({super.key, this.initialImagePath});
 
   @override
   State<ChatSiPintarPage> createState() => _ChatSiPintarPageState();
@@ -30,6 +31,10 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
   String _userInitial = '?';
 
   Map<String, int> _categoryIds = {};
+
+  final String? initialImagePath;
+
+  _ChatSiPintarPageState({this.initialImagePath});
 
   Future<void> _loadCategories(int userId) async {
     try {
@@ -76,10 +81,15 @@ class _ChatSiPintarPageState extends State<ChatSiPintarPage> {
     }
   }
 
-  @override
+@override
   void initState() {
     super.initState();
     _init();
+    if (widget.initialImagePath != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleReceiptImage(widget.initialImagePath!);
+      });
+    }
   }
 
   Future<void> _init() async {
@@ -335,21 +345,20 @@ Analisis keuangan:
     }
   }
 
-  Future<void> _onTakePhoto() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.camera);
-    if (image != null && mounted) {
+Future<void> _handleReceiptImage(String imagePath) async {
+    if (mounted) {
       setState(() {
-        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: image.path));
+        _messages.add(_ChatMessage(text: '', isUser: true, imagePath: imagePath));
       });
       _scrollToBottom();
 
       setState(() => _isTyping = true);
+    }
 
-      try {
-        final extractedText = await OCRService.extractText(image.path);
+    try {
+      final extractedText = await OCRService.extractText(imagePath);
 
-        final prompt = '''
+      final prompt = '''
 Teks OCR dari struk/nota/bukti belanja:
 
 $extractedText
@@ -360,11 +369,20 @@ Analisis keuangan:
 3. Item utama dan harga?
 4. Saran hemat?''';
 
-        await _getAIResponse(prompt);
-      } catch (e) {
+      await _getAIResponse(prompt);
+    } catch (e) {
+      if (mounted) {
         setState(() => _isTyping = false);
         _addSiPintarMessage(text: 'Gagal membaca gambar: $e');
       }
+    }
+  }
+
+  Future<void> _onTakePhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.camera);
+    if (image != null && mounted) {
+      await _handleReceiptImage(image.path);
     }
   }
 
