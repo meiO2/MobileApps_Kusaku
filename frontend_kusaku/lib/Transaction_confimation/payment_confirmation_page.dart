@@ -10,9 +10,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend_kusaku/config/api_config.dart';
 
-// Removed _Session - integrated into BudgetService
-
-
 enum PaymentStatus { idle, submitting, success, failure }
 
 class PaymentConfirmationPage extends StatefulWidget {
@@ -21,7 +18,8 @@ class PaymentConfirmationPage extends StatefulWidget {
     PaymentConfirmationData? data,
     this.onSubmitPayment,
   })  : data = data ?? _defaultPaymentData,
-        assert((data ?? _defaultPaymentData).categories.length > 0, 'Payment categories must not be empty');
+        assert((data ?? _defaultPaymentData).categories.length > 0,
+            'Payment categories must not be empty');
 
   final PaymentConfirmationData data;
   final Future<PaymentSubmissionResult> Function(
@@ -29,15 +27,16 @@ class PaymentConfirmationPage extends StatefulWidget {
   )? onSubmitPayment;
 
   @override
-  State<PaymentConfirmationPage> createState() => _PaymentConfirmationPageState();
+  State<PaymentConfirmationPage> createState() =>
+      _PaymentConfirmationPageState();
 }
 
 class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   bool _isCategoryOpen = false;
   bool _showSavingConfirmation = false;
   String _userId = '';
-  String? _selectedCategoryId;
-PaymentStatus _paymentStatus = PaymentStatus.idle;
+
+  PaymentStatus _paymentStatus = PaymentStatus.idle;
   int? _previousSelectedIndex;
   String? _errorMessage;
 
@@ -47,6 +46,7 @@ PaymentStatus _paymentStatus = PaymentStatus.idle;
 
   bool get _isPaymentSuccessful => _paymentStatus == PaymentStatus.success;
   bool get _isSubmitting => _paymentStatus == PaymentStatus.submitting;
+
   List<PaymentCategoryData> get _categories {
     if (_budgets.isEmpty) return widget.data.categories;
 
@@ -60,7 +60,6 @@ PaymentStatus _paymentStatus = PaymentStatus.idle;
         id: id,
         name: name,
         icon: kCategoryIcons[name] ?? Icons.category,
-
         remainingAmount: remaining.toInt(),
         isSaving: name == 'Tabungan',
       );
@@ -76,12 +75,11 @@ PaymentStatus _paymentStatus = PaymentStatus.idle;
     'Belanja': Icons.shopping_bag_outlined,
   };
 
-
   List<PaymentDetailLine> get _paymentDetails => buildPaymentDetailLines(
-    amount: widget.data.amount,
-    transactionFee: widget.data.transactionFee,
-    remainingBalance: widget.data.remainingBalance,
-  );
+        amount: widget.data.amount,
+        transactionFee: widget.data.transactionFee,
+        remainingBalance: widget.data.remainingBalance,
+      );
 
   @override
   void initState() {
@@ -89,8 +87,9 @@ PaymentStatus _paymentStatus = PaymentStatus.idle;
     _loadSession();
   }
 
-Future<void> _loadSession() async {
-    final userId = await SharedPreferences.getInstance().then((prefs) => prefs.getInt('user_id')?.toString() ?? '');
+  Future<void> _loadSession() async {
+    final userId = await SharedPreferences.getInstance()
+        .then((prefs) => prefs.getInt('user_id')?.toString() ?? '');
     if (!mounted) return;
 
     setState(() {
@@ -105,12 +104,12 @@ Future<void> _loadSession() async {
     }
   }
 
-Future<List<dynamic>> _loadBudgets() async {
+  Future<List<dynamic>> _loadBudgets() async {
     if (_userId.isEmpty) return [];
 
     try {
       final res = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}budgets/$_userId/'),
+        Uri.parse('${ApiConfig.baseUrl}budget/$_userId/'),
       );
 
       if (res.statusCode == 200) {
@@ -121,7 +120,6 @@ Future<List<dynamic>> _loadBudgets() async {
     }
     return [];
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -154,12 +152,14 @@ Future<List<dynamic>> _loadBudgets() async {
                       Expanded(
                         child: _PaymentSuccessSection(
                           title: widget.data.successTitle,
-                          amountLabel: formatPaymentCurrency(widget.data.amount),
+                          amountLabel:
+                              formatPaymentCurrency(widget.data.amount),
                           merchantName: widget.data.merchant.name,
-                          methodLabel:
-                              widget.data.successMethodLabel ?? widget.data.methodLabel,
+                          methodLabel: widget.data.successMethodLabel ??
+                              widget.data.methodLabel,
                           onBack: () {
-                            Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context)
+                                .popUntil((route) => route.isFirst);
                           },
                         ),
                       ),
@@ -221,9 +221,7 @@ Future<List<dynamic>> _loadBudgets() async {
   }
 
   Future<void> _handlePaymentConfirmation() async {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     final enteredPin = await showDialog<String>(
       context: context,
@@ -232,9 +230,7 @@ Future<List<dynamic>> _loadBudgets() async {
       ),
     );
 
-    if (!mounted || enteredPin == null) {
-      return;
-    }
+    if (!mounted || enteredPin == null) return;
 
     final localPin = TransactionPinStore.pin;
     if (localPin != null && localPin.isNotEmpty && enteredPin != localPin) {
@@ -252,9 +248,7 @@ Future<List<dynamic>> _loadBudgets() async {
 
     final result = await _submitPayment(enteredPin);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _isCategoryOpen = false;
@@ -267,7 +261,9 @@ Future<List<dynamic>> _loadBudgets() async {
   }
 
   Future<PaymentSubmissionResult> _submitPayment(String enteredPin) async {
+    // ✅ Always derive category from _selectedIndex — never rely on a separate field
     final selectedCategory = _categories[_selectedIndex];
+
     final payload = PaymentSubmissionPayload(
       transactionId: widget.data.transactionId,
       categoryId: selectedCategory.id,
@@ -297,25 +293,23 @@ Future<List<dynamic>> _loadBudgets() async {
     }
 
     try {
-
-      if (_selectedCategoryId != null && _selectedCategoryId!.isNotEmpty) {
-        await http.post(
-          Uri.parse('${ApiConfig.baseUrl}expenses/$_userId/'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'category': _selectedCategoryId,
-            'total_payment': widget.data.amount.toString(),
-            'receiver': widget.data.merchant.name,
-            'title': 'Pembayaran ke ${widget.data.merchant.name}',
-            'description': widget.data.methodLabel,
-          }),
-        );
-      }
+      // ✅ Use selectedCategory.id directly — always valid even if user
+      //    never manually changed the category selector
+      await http.post(
+        Uri.parse('${ApiConfig.baseUrl}expenses/$_userId/'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'category': selectedCategory.id,
+          'total_payment': widget.data.amount.toString(),
+          'receiver': widget.data.merchant.name,
+          'title': 'Pembayaran ke ${widget.data.merchant.name}',
+          'description': widget.data.methodLabel,
+        }),
+      );
 
       return const PaymentSubmissionResult(isSuccess: true);
     } catch (e) {
       print('Payment error: $e');
-
       return const PaymentSubmissionResult(
         isSuccess: false,
         errorMessage: 'Gagal menyimpan transaksi',
@@ -324,9 +318,7 @@ Future<List<dynamic>> _loadBudgets() async {
   }
 
   void _toggleCategory() {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     setState(() {
       _showSavingConfirmation = false;
@@ -340,8 +332,6 @@ Future<List<dynamic>> _loadBudgets() async {
     final nextCategory = _categories[index];
 
     setState(() {
-      _selectedCategoryId = nextCategory.id; // ✅ FIXED
-
       _errorMessage = null;
 
       if (nextCategory.isSaving) {
@@ -360,9 +350,7 @@ Future<List<dynamic>> _loadBudgets() async {
   }
 
   void _cancelSavingCategory() {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     setState(() {
       if (_previousSelectedIndex != null) {
@@ -374,9 +362,7 @@ Future<List<dynamic>> _loadBudgets() async {
   }
 
   void _confirmSavingCategory() {
-    if (_isSubmitting) {
-      return;
-    }
+    if (_isSubmitting) return;
 
     setState(() {
       _previousSelectedIndex = null;
